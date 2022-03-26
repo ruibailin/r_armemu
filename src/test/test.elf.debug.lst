@@ -1,0 +1,2314 @@
+
+test.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text.boot:
+
+00000000 <_start>:
+
+.section .text.boot
+.globl _start
+_start:
+_vectors:
+	b		reset
+   0:	ea000009 	b	2c <reset>
+	b		undefined
+   4:	ea00001f 	b	88 <undefined>
+	b		syscall
+   8:	ea000024 	b	a0 <syscall>
+	b		prefetch_abort
+   c:	ea000029 	b	b8 <prefetch_abort>
+	b		data_abort
+  10:	ea00002e 	b	d0 <data_abort>
+	b		reserved
+  14:	ea000033 	b	e8 <reserved>
+	b		irq
+  18:	ea000033 	b	ec <irq>
+	b		fiq
+  1c:	ea000038 	b	104 <fiq>
+
+00000020 <test>:
+
+test:
+	b		test2
+  20:	eaffffff 	b	24 <test2>
+
+00000024 <test2>:
+//	EMIT256(nop)
+//	EMIT256(nop)
+//	EMIT256(nop)
+//	EMIT256(eor r0, r0, r1)
+//	EMIT256(add r0, r0, r1)
+	b test2
+  24:	eafffffe 	b	24 <test2>
+
+00000028 <foo>:
+//	EMIT256(ldr		r0, =test)
+foo:
+//	ldr		r0, =foo
+//	EMIT256(ldr		r0, =foo)
+//	bx		r0	
+	b		test
+  28:	eafffffc 	b	20 <test>
+
+0000002c <reset>:
+
+reset: /* arm, in svc mode */
+//	b		test
+
+	/* PLD instruction */
+	pld		[r0]
+  2c:	f5d0f000 	pld	[r0]
+
+	/* clz instruction */
+	clz		r0, r1
+  30:	e16f0f11 	clz	r0, r1
+	
+	/* set up the svc stack */
+	ldr		sp, =svc_stack_top
+  34:	e59fd0f4 	ldr	sp, [pc, #244]	; 130 <coprocessor_test+0x4>
+
+	/* set up the stack for irq, fiq, abort, undefined, and lastly system mode */
+	mrs		r0, cpsr
+  38:	e10f0000 	mrs	r0, CPSR
+	bic		r0, r0, #0x1f
+  3c:	e3c0001f 	bic	r0, r0, #31
+
+	orr		r1, r0, #0x12 // irq
+  40:	e3801012 	orr	r1, r0, #18
+	msr		cpsr_c, r1
+  44:	e121f001 	msr	CPSR_c, r1
+	ldr		sp, =irq_stack_top
+  48:	e59fd0e4 	ldr	sp, [pc, #228]	; 134 <coprocessor_test+0x8>
+
+	orr		r1, r0, #0x11 // fiq
+  4c:	e3801011 	orr	r1, r0, #17
+	msr		cpsr_c, r1
+  50:	e121f001 	msr	CPSR_c, r1
+	ldr		sp, =fiq_stack_top
+  54:	e59fd0dc 	ldr	sp, [pc, #220]	; 138 <coprocessor_test+0xc>
+		
+	orr		r1, r0, #0x17 // abort
+  58:	e3801017 	orr	r1, r0, #23
+	msr		cpsr_c, r1
+  5c:	e121f001 	msr	CPSR_c, r1
+	ldr		sp, =abt_stack_top
+  60:	e59fd0d4 	ldr	sp, [pc, #212]	; 13c <coprocessor_test+0x10>
+
+	orr		r1, r0, #0x1b // undefined
+  64:	e380101b 	orr	r1, r0, #27
+	msr		cpsr_c, r1
+  68:	e121f001 	msr	CPSR_c, r1
+	ldr		sp, =und_stack_top
+  6c:	e59fd0cc 	ldr	sp, [pc, #204]	; 140 <coprocessor_test+0x14>
+
+	orr		r1, r0, #0x1f // system
+  70:	e380101f 	orr	r1, r0, #31
+	msr		cpsr_c, r1
+  74:	e121f001 	msr	CPSR_c, r1
+	ldr		sp, =sys_stack_top
+  78:	e59fd0c4 	ldr	sp, [pc, #196]	; 144 <coprocessor_test+0x18>
+	// leave the cpu in system mode
+
+	/* make sure the coprocessor stuff decodes properly */
+	bl		coprocessor_test
+  7c:	eb00002a 	bl	12c <coprocessor_test>
+
+0:
+	bl		main
+  80:	eb0000b2 	bl	350 <main>
+	b		0b
+  84:	eafffffd 	b	80 <reset+0x54>
+
+00000088 <undefined>:
+
+undefined:
+	stmfd	sp!,{r0-r12,lr}
+  88:	e92d5fff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+
+	ldr		r0, =undefined_handler
+  8c:	e59f00b4 	ldr	r0, [pc, #180]	; 148 <coprocessor_test+0x1c>
+	mov		lr, pc
+  90:	e1a0e00f 	mov	lr, pc
+	bx		r0
+  94:	e12fff10 	bx	r0
+
+	ldmfd	sp!,{r0-r12,lr}
+  98:	e8bd5fff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+	movs	pc,lr // instruction *after* the undefined instruction
+  9c:	e1b0f00e 	movs	pc, lr
+
+000000a0 <syscall>:
+
+syscall:
+	stmfd	sp!,{r0-r12,lr}
+  a0:	e92d5fff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+
+	ldr		r0, =swi_handler
+  a4:	e59f00a0 	ldr	r0, [pc, #160]	; 14c <coprocessor_test+0x20>
+	mov		lr, pc
+  a8:	e1a0e00f 	mov	lr, pc
+	bx		r0
+  ac:	e12fff10 	bx	r0
+
+	ldmfd	sp!,{r0-r12,lr}
+  b0:	e8bd5fff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+	movs	pc,lr
+  b4:	e1b0f00e 	movs	pc, lr
+
+000000b8 <prefetch_abort>:
+
+prefetch_abort:
+	stmfd	sp!,{r0-r12,lr}
+  b8:	e92d5fff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+
+	ldr		r0, =prefetch_abort_handler
+  bc:	e59f008c 	ldr	r0, [pc, #140]	; 150 <coprocessor_test+0x24>
+	mov		lr, pc
+  c0:	e1a0e00f 	mov	lr, pc
+	bx		r0
+  c4:	e12fff10 	bx	r0
+
+	ldmfd	sp!,{r0-r12,lr}
+  c8:	e8bd5fff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+	subs	pc,lr,#4	// restart the instruction that generated the fault
+  cc:	e25ef004 	subs	pc, lr, #4
+
+000000d0 <data_abort>:
+
+data_abort:
+	stmfd	sp!,{r0-r12,lr}
+  d0:	e92d5fff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+
+	ldr		r0, =data_abort_handler
+  d4:	e59f0078 	ldr	r0, [pc, #120]	; 154 <coprocessor_test+0x28>
+	mov		lr, pc
+  d8:	e1a0e00f 	mov	lr, pc
+	bx		r0
+  dc:	e12fff10 	bx	r0
+
+	ldmfd	sp!,{r0-r12,lr}
+  e0:	e8bd5fff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+	subs	pc,lr,#8	// restart the instruction that generated the fault
+  e4:	e25ef008 	subs	pc, lr, #8
+
+000000e8 <reserved>:
+
+reserved:
+	b	.
+  e8:	eafffffe 	b	e8 <reserved>
+
+000000ec <irq>:
+
+irq:
+	stmfd	sp!,{r0-r12,lr}
+  ec:	e92d5fff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+
+	ldr		r0, =irq_handler
+  f0:	e59f0060 	ldr	r0, [pc, #96]	; 158 <coprocessor_test+0x2c>
+	mov		lr, pc
+  f4:	e1a0e00f 	mov	lr, pc
+	bx		r0
+  f8:	e12fff10 	bx	r0
+
+	ldmfd	sp!,{r0-r12,lr}
+  fc:	e8bd5fff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip, lr}
+	subs	pc,lr,#4
+ 100:	e25ef004 	subs	pc, lr, #4
+
+00000104 <fiq>:
+
+fiq:
+	stmfd	sp!,{r0-r7,lr}
+ 104:	e92d40ff 	push	{r0, r1, r2, r3, r4, r5, r6, r7, lr}
+
+	ldr		r0, =fiq_handler
+ 108:	e59f004c 	ldr	r0, [pc, #76]	; 15c <coprocessor_test+0x30>
+	mov		lr, pc
+ 10c:	e1a0e00f 	mov	lr, pc
+	bx		r0
+ 110:	e12fff10 	bx	r0
+
+	ldmfd	sp!,{r0-r7,lr}
+ 114:	e8bd40ff 	pop	{r0, r1, r2, r3, r4, r5, r6, r7, lr}
+	subs	pc,lr,#4
+ 118:	e25ef004 	subs	pc, lr, #4
+
+0000011c <arm_enable_ints>:
+
+/* misc assembly instructions */
+.global arm_enable_ints
+arm_enable_ints:
+	/* enable interrupts */
+	mrs		r0, cpsr
+ 11c:	e10f0000 	mrs	r0, CPSR
+	bic		r0, r0, #(1<<7)
+ 120:	e3c00080 	bic	r0, r0, #128	; 0x80
+	msr		cpsr, r0
+ 124:	e129f000 	msr	CPSR_fc, r0
+	bx		lr
+ 128:	e12fff1e 	bx	lr
+
+0000012c <coprocessor_test>:
+//	mrc		p15, 1, r12, cr2, cr3, 2 /* coprocessor 5, opcodes 1/2, CRn 2, CRm 3 */
+
+	/* floating point stuff which should hit the coprocessor */
+//	fmacs	s0, s1, s2
+//	fmacd	d0, d1, d2
+	bx		lr
+ 12c:	e12fff1e 	bx	lr
+	ldr		sp, =svc_stack_top
+ 130:	000077c0 	.word	0x000077c0
+	ldr		sp, =irq_stack_top
+ 134:	000037c0 	.word	0x000037c0
+	ldr		sp, =fiq_stack_top
+ 138:	000047c0 	.word	0x000047c0
+	ldr		sp, =abt_stack_top
+ 13c:	000057c0 	.word	0x000057c0
+	ldr		sp, =und_stack_top
+ 140:	000067c0 	.word	0x000067c0
+	ldr		sp, =sys_stack_top
+ 144:	000027c0 	.word	0x000027c0
+	ldr		r0, =undefined_handler
+ 148:	00000318 	.word	0x00000318
+	ldr		r0, =swi_handler
+ 14c:	00000340 	.word	0x00000340
+	ldr		r0, =prefetch_abort_handler
+ 150:	000002f0 	.word	0x000002f0
+	ldr		r0, =data_abort_handler
+ 154:	000002c8 	.word	0x000002c8
+	ldr		r0, =irq_handler
+ 158:	0000021c 	.word	0x0000021c
+	ldr		r0, =fiq_handler
+ 15c:	000002b8 	.word	0x000002b8
+
+Disassembly of section .text:
+
+00000160 <arm_flush_invalidate_d_cache>:
+.arm
+.text
+
+	.globl	arm_flush_invalidate_d_cache
+arm_flush_invalidate_d_cache:
+	mrc		p15, 0x0, r15, c7, c14, 3	/* test, clean, and invalidate Dcache */
+     160:	ee17ff7e 	mrc	15, 0, APSR_nzcv, cr7, cr14, {3}
+	bne 	arm_flush_invalidate_d_cache
+     164:	1afffffd 	bne	160 <arm_flush_invalidate_d_cache>
+
+	mov		r0, #0
+     168:	e3a00000 	mov	r0, #0
+	mcr		p15, 0, r0, c7, c10, 4		/* drain write buffer */
+     16c:	ee070f9a 	mcr	15, 0, r0, cr7, cr10, {4}
+	bx		lr
+     170:	e12fff1e 	bx	lr
+
+00000174 <arm_flush_d_cache>:
+
+	.globl	arm_flush_d_cache
+arm_flush_d_cache:
+	mrc		p15, 0x0, r15, c7, c10, 3	/* test and clean Dcache */
+     174:	ee17ff7a 	mrc	15, 0, APSR_nzcv, cr7, cr10, {3}
+	bne 	arm_flush_d_cache
+     178:	1afffffd 	bne	174 <arm_flush_d_cache>
+
+	mov		r0, #0
+     17c:	e3a00000 	mov	r0, #0
+	mcr		p15, 0, r0, c7, c10, 4		/* drain write buffer */
+     180:	ee070f9a 	mcr	15, 0, r0, cr7, cr10, {4}
+	bx		lr
+     184:	e12fff1e 	bx	lr
+
+00000188 <arm_invalidate_i_cache>:
+
+	.globl	arm_invalidate_i_cache
+arm_invalidate_i_cache:
+	mov 	r0, #0
+     188:	e3a00000 	mov	r0, #0
+	mcr 	p15, 0x0, r0, c7, c5, 0x0 /* invalidate I-cache */
+     18c:	ee070f15 	mcr	15, 0, r0, cr7, cr5, {0}
+	bx		lr
+     190:	e12fff1e 	bx	lr
+
+00000194 <arm_invalidate_d_cache>:
+
+	.globl	arm_invalidate_d_cache
+arm_invalidate_d_cache:
+	mov 	r0, #0
+     194:	e3a00000 	mov	r0, #0
+	mcr 	p15, 0x0, r0, c7, c6, 0x0 /* invalidate D-cache */
+     198:	ee070f16 	mcr	15, 0, r0, cr7, cr6, {0}
+	bx		lr
+     19c:	e12fff1e 	bx	lr
+
+000001a0 <arm_drain_write_buffer>:
+
+	.globl	arm_drain_write_buffer
+arm_drain_write_buffer:
+	mov 	r0, #0
+     1a0:	e3a00000 	mov	r0, #0
+	mcr 	p15, 0, r0, c7, c10, 4		/* drain write buffer */
+     1a4:	ee070f9a 	mcr	15, 0, r0, cr7, cr10, {4}
+	bx		lr
+     1a8:	e12fff1e 	bx	lr
+
+000001ac <arm_tlb_flush>:
+
+	.globl	arm_tlb_flush
+arm_tlb_flush:
+	mov		r0, #0
+     1ac:	e3a00000 	mov	r0, #0
+	mcr 	p15, 0, r0, c7, c10, 4		/* drain write buffer */
+     1b0:	ee070f9a 	mcr	15, 0, r0, cr7, cr10, {4}
+	mcr 	p15, 0, r0, c8, c7, 0		/* globally flush TLB */
+     1b4:	ee080f17 	mcr	15, 0, r0, cr8, cr7, {0}
+	bx		lr
+     1b8:	e12fff1e 	bx	lr
+
+000001bc <read_cpu_id>:
+
+	.globl	read_cpu_id
+read_cpu_id:
+	mrc		p15, 0x0, r0, c0, c0, 0x0
+     1bc:	ee100f10 	mrc	15, 0, r0, cr0, cr0, {0}
+	bx		lr
+     1c0:	e12fff1e 	bx	lr
+
+000001c4 <read_cir>:
+
+	.globl	read_cir
+read_cir:
+	mrc		p15, 0x0, r0, c0, c0, 0x1
+     1c4:	ee100f30 	mrc	15, 0, r0, cr0, cr0, {1}
+	bx		lr
+     1c8:	e12fff1e 	bx	lr
+
+000001cc <read_cp15>:
+
+	.globl	read_cp15
+read_cp15:
+	mrc		p15, 0x0, r0, c1, c0, 0x0
+     1cc:	ee110f10 	mrc	15, 0, r0, cr1, cr0, {0}
+	bx		lr
+     1d0:	e12fff1e 	bx	lr
+
+000001d4 <write_cp15>:
+
+	.globl	write_cp15
+write_cp15:
+	mcr		p15, 0x0, r0, c1, c0, 0x0
+     1d4:	ee010f10 	mcr	15, 0, r0, cr1, cr0, {0}
+	nop
+     1d8:	e1a00000 	nop			; (mov r0, r0)
+	nop
+     1dc:	e1a00000 	nop			; (mov r0, r0)
+	nop
+     1e0:	e1a00000 	nop			; (mov r0, r0)
+	bx		lr
+     1e4:	e12fff1e 	bx	lr
+
+000001e8 <read_trans_table_base>:
+
+	.globl read_trans_table_base
+read_trans_table_base:
+	mrc		p15, 0x0, r0, c2, c0, 0x0
+     1e8:	ee120f10 	mrc	15, 0, r0, cr2, cr0, {0}
+	bx		lr
+     1ec:	e12fff1e 	bx	lr
+
+000001f0 <write_trans_table_base>:
+
+	.globl write_trans_table_base
+write_trans_table_base:
+	mcr		p15, 0x0, r0, c2, c0, 0x0
+     1f0:	ee020f10 	mcr	15, 0, r0, cr2, cr0, {0}
+	bx		lr
+     1f4:	e12fff1e 	bx	lr
+
+000001f8 <write_domain_control_reg>:
+	
+	.globl	write_domain_control_reg
+write_domain_control_reg:
+	mcr		p15, 0x0, r0, c3, c0, 0x0
+     1f8:	ee030f10 	mcr	15, 0, r0, cr3, cr0, {0}
+	bx		lr
+     1fc:	e12fff1e 	bx	lr
+
+00000200 <read_fault_sr>:
+
+	.globl	read_fault_sr
+read_fault_sr:
+	mrc		p15, 0x0, r0, c5, c0, 0x0
+     200:	ee150f10 	mrc	15, 0, r0, cr5, cr0, {0}
+	bx		lr
+     204:	e12fff1e 	bx	lr
+
+00000208 <read_fault_ar>:
+	
+	.globl	read_fault_ar
+read_fault_ar:
+	mrc		p15, 0x0, r0, c6, c0, 0x0
+     208:	ee160f10 	mrc	15, 0, r0, cr6, cr0, {0}
+	bx		lr
+     20c:	e12fff1e 	bx	lr
+
+00000210 <__gccmain>:
+void armfunc(int a);
+
+// gcc seems to emit a call to this
+void __gccmain(void)
+{
+}
+     210:	e12fff1e 	bx	lr
+
+00000214 <cpufunc>:
+
+void cpufunc(void)
+{
+//  thumbfunc(17);
+    armfunc(17);
+     214:	e3a00011 	mov	r0, #17
+     218:	ea00030f 	b	e5c <armfunc>
+
+0000021c <irq_handler>:
+//      test_display();
+    }
+}
+
+void irq_handler(void)
+{
+     21c:	e92d4010 	push	{r4, lr}
+    int vector;
+
+    /* test the codepage removal */
+    arm_invalidate_i_cache();
+     220:	ebffffd8 	bl	188 <arm_invalidate_i_cache>
+    debug_dump_memory_words(&delta, 1);
+
+    lasttime = time;
+#endif
+
+    vector = *REG(PIC_CURRENT_NUM);
+     224:	e59f3078 	ldr	r3, [pc, #120]	; 2a4 <irq_handler+0x88>
+     228:	e5933014 	ldr	r3, [r3, #20]
+    switch (vector) {
+     22c:	e2833001 	add	r3, r3, #1
+     230:	e3530003 	cmp	r3, #3
+     234:	908ff103 	addls	pc, pc, r3, lsl #2
+     238:	ea000015 	b	294 <irq_handler+0x78>
+     23c:	ea000002 	b	24c <irq_handler+0x30>
+     240:	ea00000c 	b	278 <irq_handler+0x5c>
+     244:	ea000006 	b	264 <irq_handler+0x48>
+     248:	ea000000 	b	250 <irq_handler+0x34>
+            break;
+        case 0xffffffff:
+            /* false alarm */
+            break;
+    }
+}
+     24c:	e8bd8010 	pop	{r4, pc}
+            dputs("irq network\n");
+     250:	e59f0050 	ldr	r0, [pc, #80]	; 2a8 <irq_handler+0x8c>
+     254:	e08f0000 	add	r0, pc, r0
+     258:	eb000163 	bl	7ec <dputs>
+}
+     25c:	e8bd4010 	pop	{r4, lr}
+            network_int_handler();
+     260:	ea0000f0 	b	628 <network_int_handler>
+            dputs("irq keyboard\n");
+     264:	e59f0040 	ldr	r0, [pc, #64]	; 2ac <irq_handler+0x90>
+     268:	e08f0000 	add	r0, pc, r0
+     26c:	eb00015e 	bl	7ec <dputs>
+}
+     270:	e8bd4010 	pop	{r4, lr}
+            keyboard_int_handler();
+     274:	ea00011f 	b	6f8 <keyboard_int_handler>
+            dputs("irq timer\n");
+     278:	e59f0030 	ldr	r0, [pc, #48]	; 2b0 <irq_handler+0x94>
+     27c:	e08f0000 	add	r0, pc, r0
+     280:	eb000159 	bl	7ec <dputs>
+            *REG(PIT_CLEAR_INT) = 1;
+     284:	e3a034f1 	mov	r3, #-251658240	; 0xf1000000
+     288:	e3a02001 	mov	r2, #1
+     28c:	e5832008 	str	r2, [r3, #8]
+            break;
+     290:	e8bd8010 	pop	{r4, pc}
+            puts("unknown irq\n");
+     294:	e59f0018 	ldr	r0, [pc, #24]	; 2b4 <irq_handler+0x98>
+}
+     298:	e8bd4010 	pop	{r4, lr}
+            puts("unknown irq\n");
+     29c:	e08f0000 	add	r0, pc, r0
+     2a0:	ea0002b1 	b	d6c <puts>
+     2a4:	f1400000 	.word	0xf1400000
+     2a8:	00000ecc 	.word	0x00000ecc
+     2ac:	00000ea8 	.word	0x00000ea8
+     2b0:	00000e88 	.word	0x00000e88
+     2b4:	00000e94 	.word	0x00000e94
+
+000002b8 <fiq_handler>:
+
+void fiq_handler(void)
+{
+    puts("fiq\n");
+     2b8:	e59f0004 	ldr	r0, [pc, #4]	; 2c4 <fiq_handler+0xc>
+     2bc:	e08f0000 	add	r0, pc, r0
+     2c0:	ea0002a9 	b	d6c <puts>
+     2c4:	00000e84 	.word	0x00000e84
+
+000002c8 <data_abort_handler>:
+}
+
+void data_abort_handler(void)
+{
+    puts("data abort\n");
+     2c8:	e59f0018 	ldr	r0, [pc, #24]	; 2e8 <data_abort_handler+0x20>
+{
+     2cc:	e92d4010 	push	{r4, lr}
+    puts("data abort\n");
+     2d0:	e08f0000 	add	r0, pc, r0
+     2d4:	eb0002a4 	bl	d6c <puts>
+
+    puts("spinning forever...\n");
+     2d8:	e59f000c 	ldr	r0, [pc, #12]	; 2ec <data_abort_handler+0x24>
+     2dc:	e08f0000 	add	r0, pc, r0
+     2e0:	eb0002a1 	bl	d6c <puts>
+    for (;;);
+     2e4:	eafffffe 	b	2e4 <data_abort_handler+0x1c>
+     2e8:	00000e78 	.word	0x00000e78
+     2ec:	00000e78 	.word	0x00000e78
+
+000002f0 <prefetch_abort_handler>:
+}
+
+void prefetch_abort_handler(void)
+{
+    puts("prefetch abort\n");
+     2f0:	e59f0018 	ldr	r0, [pc, #24]	; 310 <prefetch_abort_handler+0x20>
+{
+     2f4:	e92d4010 	push	{r4, lr}
+    puts("prefetch abort\n");
+     2f8:	e08f0000 	add	r0, pc, r0
+     2fc:	eb00029a 	bl	d6c <puts>
+
+    puts("spinning forever...\n");
+     300:	e59f000c 	ldr	r0, [pc, #12]	; 314 <prefetch_abort_handler+0x24>
+     304:	e08f0000 	add	r0, pc, r0
+     308:	eb000297 	bl	d6c <puts>
+    for (;;);
+     30c:	eafffffe 	b	30c <prefetch_abort_handler+0x1c>
+     310:	00000e74 	.word	0x00000e74
+     314:	00000e50 	.word	0x00000e50
+
+00000318 <undefined_handler>:
+}
+
+void undefined_handler(void)
+{
+    puts("undefined\n");
+     318:	e59f0018 	ldr	r0, [pc, #24]	; 338 <undefined_handler+0x20>
+{
+     31c:	e92d4010 	push	{r4, lr}
+    puts("undefined\n");
+     320:	e08f0000 	add	r0, pc, r0
+     324:	eb000290 	bl	d6c <puts>
+    puts("spinning forever...\n");
+     328:	e59f000c 	ldr	r0, [pc, #12]	; 33c <undefined_handler+0x24>
+     32c:	e08f0000 	add	r0, pc, r0
+     330:	eb00028d 	bl	d6c <puts>
+    for (;;);
+     334:	eafffffe 	b	334 <undefined_handler+0x1c>
+     338:	00000e5c 	.word	0x00000e5c
+     33c:	00000e28 	.word	0x00000e28
+
+00000340 <swi_handler>:
+}
+
+void swi_handler(void)
+{
+    puts("swi handler\n");
+     340:	e59f0004 	ldr	r0, [pc, #4]	; 34c <swi_handler+0xc>
+     344:	e08f0000 	add	r0, pc, r0
+     348:	ea000287 	b	d6c <puts>
+     34c:	00000e44 	.word	0x00000e44
+
+00000350 <main>:
+{
+     350:	e92d4030 	push	{r4, r5, lr}
+    armfunc(17);
+     354:	e3a00011 	mov	r0, #17
+{
+     358:	e24dd00c 	sub	sp, sp, #12
+    armfunc(17);
+     35c:	eb0002be 	bl	e5c <armfunc>
+    if (*REG(SYSINFO_FEATURES) & SYSINFO_FEATURE_DISPLAY)
+     360:	e3a0320f 	mov	r3, #-268435456	; 0xf0000000
+     364:	e5933000 	ldr	r3, [r3]
+     368:	e3130001 	tst	r3, #1
+     36c:	0a000051 	beq	4b8 <main+0x168>
+        has_display = 1;
+     370:	e59f3198 	ldr	r3, [pc, #408]	; 510 <main+0x1c0>
+     374:	e3a02001 	mov	r2, #1
+     378:	e08f3003 	add	r3, pc, r3
+     37c:	e5832000 	str	r2, [r3]
+        clear_display(0);
+     380:	e3a00000 	mov	r0, #0
+     384:	eb000134 	bl	85c <clear_display>
+        initialize_text();
+     388:	eb000228 	bl	c30 <initialize_text>
+        set_text_color(0xffffffff, 0);
+     38c:	e3a01000 	mov	r1, #0
+     390:	e3e00000 	mvn	r0, #0
+     394:	eb00021f 	bl	c18 <set_text_color>
+    puts("console initialized\n");
+     398:	e59f0174 	ldr	r0, [pc, #372]	; 514 <main+0x1c4>
+     39c:	e08f0000 	add	r0, pc, r0
+     3a0:	eb000271 	bl	d6c <puts>
+    puts("emulator features:\n");
+     3a4:	e59f016c 	ldr	r0, [pc, #364]	; 518 <main+0x1c8>
+     3a8:	e08f0000 	add	r0, pc, r0
+     3ac:	eb00026e 	bl	d6c <puts>
+    if (*REG(SYSINFO_FEATURES) & SYSINFO_FEATURE_DISPLAY)
+     3b0:	e3a0320f 	mov	r3, #-268435456	; 0xf0000000
+     3b4:	e5933000 	ldr	r3, [r3]
+     3b8:	e3130001 	tst	r3, #1
+     3bc:	1a000043 	bne	4d0 <main+0x180>
+    if (*REG(SYSINFO_FEATURES) & SYSINFO_FEATURE_CONSOLE)
+     3c0:	e3a0320f 	mov	r3, #-268435456	; 0xf0000000
+     3c4:	e5933000 	ldr	r3, [r3]
+     3c8:	e3130002 	tst	r3, #2
+     3cc:	1a00004b 	bne	500 <main+0x1b0>
+    if (*REG(SYSINFO_FEATURES) & SYSINFO_FEATURE_NETWORK)
+     3d0:	e3a0320f 	mov	r3, #-268435456	; 0xf0000000
+     3d4:	e5933000 	ldr	r3, [r3]
+     3d8:	e3130004 	tst	r3, #4
+     3dc:	1a000043 	bne	4f0 <main+0x1a0>
+    if (*REG(SYSINFO_FEATURES) & SYSINFO_FEATURE_BLOCKDEV)
+     3e0:	e3a0320f 	mov	r3, #-268435456	; 0xf0000000
+     3e4:	e5933000 	ldr	r3, [r3]
+     3e8:	e3130008 	tst	r3, #8
+     3ec:	1a00003b 	bne	4e0 <main+0x190>
+    read_cpu_id();
+     3f0:	ebffff71 	bl	1bc <read_cpu_id>
+    mmu_init();
+     3f4:	eb000050 	bl	53c <mmu_init>
+    puts("enabling interrupts\n");
+     3f8:	e59f011c 	ldr	r0, [pc, #284]	; 51c <main+0x1cc>
+    *REG64(BDEV_CMD_OFF) = 1024;
+     3fc:	e3a04b01 	mov	r4, #1024	; 0x400
+    puts("enabling interrupts\n");
+     400:	e08f0000 	add	r0, pc, r0
+     404:	eb000258 	bl	d6c <puts>
+    arm_enable_ints();
+     408:	ebffff43 	bl	11c <arm_enable_ints>
+    puts("setting timer\n");
+     40c:	e59f010c 	ldr	r0, [pc, #268]	; 520 <main+0x1d0>
+    *REG64(BDEV_CMD_OFF) = 1024;
+     410:	e3a05000 	mov	r5, #0
+    puts("setting timer\n");
+     414:	e08f0000 	add	r0, pc, r0
+     418:	eb000253 	bl	d6c <puts>
+    *REG(BDEV_CMD_ADDR) = 0x200000;
+     41c:	e3a034f2 	mov	r3, #-234881024	; 0xf2000000
+    *REG(PIT_INTERVAL) = 500;
+     420:	e3a024f1 	mov	r2, #-251658240	; 0xf1000000
+    *REG(PIT_START_PERIODIC) = 1;
+     424:	e3a0c001 	mov	ip, #1
+    *REG(PIT_INTERVAL) = 500;
+     428:	e3a0ef7d 	mov	lr, #500	; 0x1f4
+    *REG(BDEV_CMD_ADDR) = 0x200000;
+     42c:	e3a00602 	mov	r0, #2097152	; 0x200000
+    *REG(PIT_INTERVAL) = 500;
+     430:	e582e00c 	str	lr, [r2, #12]
+    *REG(PIT_START_PERIODIC) = 1;
+     434:	e582c014 	str	ip, [r2, #20]
+    *REG(BDEV_CMD_ADDR) = 0x200000;
+     438:	e5830004 	str	r0, [r3, #4]
+    puts("keyboard test:\n");
+     43c:	e59f00e0 	ldr	r0, [pc, #224]	; 524 <main+0x1d4>
+    *REG(BDEV_CMD_LEN) = 4096;
+     440:	e3a01a01 	mov	r1, #4096	; 0x1000
+    *REG(BDEV_CMD) = BDEV_CMD_ERASE;
+     444:	e3a0e003 	mov	lr, #3
+    *REG64(BDEV_CMD_OFF) = 1024;
+     448:	e1c340f8 	strd	r4, [r3, #8]
+    *REG(BDEV_CMD) = BDEV_CMD_WRITE;
+     44c:	e3a02002 	mov	r2, #2
+    *REG(BDEV_CMD_LEN) = 4096;
+     450:	e5831010 	str	r1, [r3, #16]
+    *REG64(BDEV_CMD_OFF) = 0;
+     454:	e3a04000 	mov	r4, #0
+    *REG(BDEV_CMD) = BDEV_CMD_ERASE;
+     458:	e583e000 	str	lr, [r3]
+    *REG64(BDEV_CMD_OFF) = 0;
+     45c:	e3a05000 	mov	r5, #0
+    *REG(BDEV_CMD_ADDR) = 0;
+     460:	e3a0e000 	mov	lr, #0
+    *REG(BDEV_CMD) = BDEV_CMD_WRITE;
+     464:	e5832000 	str	r2, [r3]
+    puts("keyboard test:\n");
+     468:	e08f0000 	add	r0, pc, r0
+    *REG(BDEV_CMD) = BDEV_CMD_READ;
+     46c:	e583c000 	str	ip, [r3]
+    *REG(BDEV_CMD_ADDR) = 0;
+     470:	e583e004 	str	lr, [r3, #4]
+    *REG64(BDEV_CMD_OFF) = 0;
+     474:	e1c340f8 	strd	r4, [r3, #8]
+    *REG(BDEV_CMD_LEN) = 4096;
+     478:	e5831010 	str	r1, [r3, #16]
+    *REG(BDEV_CMD) = BDEV_CMD_WRITE;
+     47c:	e5832000 	str	r2, [r3]
+    puts("keyboard test:\n");
+     480:	eb000239 	bl	d6c <puts>
+    unsigned long long off = 0;
+     484:	e28d4004 	add	r4, sp, #4
+    armfunc(17);
+     488:	e3a00011 	mov	r0, #17
+     48c:	eb000272 	bl	e5c <armfunc>
+        if (read_keyboard(&key) >= 0)
+     490:	e1a00004 	mov	r0, r4
+     494:	eb0000b9 	bl	780 <read_keyboard>
+     498:	e3500000 	cmp	r0, #0
+     49c:	bafffff9 	blt	488 <main+0x138>
+            if ((key & KEY_MOD_UP) == 0)
+     4a0:	e59d0004 	ldr	r0, [sp, #4]
+     4a4:	e3500000 	cmp	r0, #0
+                putchar(key);
+     4a8:	e20000ff 	and	r0, r0, #255	; 0xff
+            if ((key & KEY_MOD_UP) == 0)
+     4ac:	bafffff5 	blt	488 <main+0x138>
+                putchar(key);
+     4b0:	eb0001ef 	bl	c74 <putchar>
+    for (;;) {
+     4b4:	eafffff3 	b	488 <main+0x138>
+    if (has_display) {
+     4b8:	e59f3068 	ldr	r3, [pc, #104]	; 528 <main+0x1d8>
+     4bc:	e08f3003 	add	r3, pc, r3
+     4c0:	e5933000 	ldr	r3, [r3]
+     4c4:	e3530000 	cmp	r3, #0
+     4c8:	0affffb2 	beq	398 <main+0x48>
+     4cc:	eaffffab 	b	380 <main+0x30>
+        puts("\tdisplay\n");
+     4d0:	e59f0054 	ldr	r0, [pc, #84]	; 52c <main+0x1dc>
+     4d4:	e08f0000 	add	r0, pc, r0
+     4d8:	eb000223 	bl	d6c <puts>
+     4dc:	eaffffb7 	b	3c0 <main+0x70>
+        puts("\tblockdevice\n");
+     4e0:	e59f0048 	ldr	r0, [pc, #72]	; 530 <main+0x1e0>
+     4e4:	e08f0000 	add	r0, pc, r0
+     4e8:	eb00021f 	bl	d6c <puts>
+     4ec:	eaffffbf 	b	3f0 <main+0xa0>
+        puts("\tnetwork\n");
+     4f0:	e59f003c 	ldr	r0, [pc, #60]	; 534 <main+0x1e4>
+     4f4:	e08f0000 	add	r0, pc, r0
+     4f8:	eb00021b 	bl	d6c <puts>
+     4fc:	eaffffb7 	b	3e0 <main+0x90>
+        puts("\tconsole\n");
+     500:	e59f0030 	ldr	r0, [pc, #48]	; 538 <main+0x1e8>
+     504:	e08f0000 	add	r0, pc, r0
+     508:	eb000217 	bl	d6c <puts>
+     50c:	eaffffaf 	b	3d0 <main+0x80>
+     510:	00007c80 	.word	0x00007c80
+     514:	00000cd0 	.word	0x00000cd0
+     518:	00000cdc 	.word	0x00000cdc
+     51c:	00000ccc 	.word	0x00000ccc
+     520:	00000cd0 	.word	0x00000cd0
+     524:	00000c8c 	.word	0x00000c8c
+     528:	00007b3c 	.word	0x00007b3c
+     52c:	00000bc4 	.word	0x00000bc4
+     530:	00000bd8 	.word	0x00000bd8
+     534:	00000bbc 	.word	0x00000bbc
+     538:	00000ba0 	.word	0x00000ba0
+
+0000053c <mmu_init>:
+{
+    unsigned int i;
+    unsigned int cp15;
+
+    /* set up the translation table with identity mapped sections */
+    for (i=0; i < 4096; i++) {
+     53c:	e59f306c 	ldr	r3, [pc, #108]	; 5b0 <mmu_init+0x74>
+        ttable[i] = (i<<20) | (3<<10) | (0<<5) | (0<<2) | (2<<0);
+     540:	e59fc06c 	ldr	ip, [pc, #108]	; 5b4 <mmu_init+0x78>
+     544:	e08f3003 	add	r3, pc, r3
+     548:	e2830dff 	add	r0, r3, #16320	; 0x3fc0
+     54c:	e280003c 	add	r0, r0, #60	; 0x3c
+     550:	e2433004 	sub	r3, r3, #4
+{
+     554:	e3a02000 	mov	r2, #0
+     558:	e92d4010 	push	{r4, lr}
+        ttable[i] = (i<<20) | (3<<10) | (0<<5) | (0<<2) | (2<<0);
+     55c:	e182100c 	orr	r1, r2, ip
+     560:	e5a31004 	str	r1, [r3, #4]!
+    for (i=0; i < 4096; i++) {
+     564:	e1530000 	cmp	r3, r0
+     568:	e2822601 	add	r2, r2, #1048576	; 0x100000
+     56c:	1afffffa 	bne	55c <mmu_init+0x20>
+    }
+
+    /* point the mmu at the translation table */
+    write_trans_table_base(ttable);
+     570:	e59f0040 	ldr	r0, [pc, #64]	; 5b8 <mmu_init+0x7c>
+     574:	e08f0000 	add	r0, pc, r0
+     578:	ebffff1c 	bl	1f0 <write_trans_table_base>
+
+    /* set up the domain control register */
+    write_domain_control_reg(0x1); // first domain is user, rest is unused
+     57c:	e3a00001 	mov	r0, #1
+     580:	ebffff1c 	bl	1f8 <write_domain_control_reg>
+
+#if 1
+    /* enable the mmu */
+    puts("enabling mmu\n");
+     584:	e59f0030 	ldr	r0, [pc, #48]	; 5bc <mmu_init+0x80>
+     588:	e08f0000 	add	r0, pc, r0
+     58c:	eb0001f6 	bl	d6c <puts>
+    cp15 = read_cp15();
+     590:	ebffff0d 	bl	1cc <read_cp15>
+    cp15 |= 1; // enable mmu
+    cp15 |= 2; // enable alignment checking
+    cp15 &= ~(3<<8); // clear S & R bit
+     594:	e3c00c03 	bic	r0, r0, #768	; 0x300
+    write_cp15(cp15);
+     598:	e3800003 	orr	r0, r0, #3
+     59c:	ebffff0c 	bl	1d4 <write_cp15>
+    puts("mmu enabled\n");
+     5a0:	e59f0018 	ldr	r0, [pc, #24]	; 5c0 <mmu_init+0x84>
+#endif
+}
+     5a4:	e8bd4010 	pop	{r4, lr}
+    puts("mmu enabled\n");
+     5a8:	e08f0000 	add	r0, pc, r0
+     5ac:	ea0001ee 	b	d6c <puts>
+     5b0:	0000bab4 	.word	0x0000bab4
+     5b4:	00000c02 	.word	0x00000c02
+     5b8:	0000ba84 	.word	0x0000ba84
+     5bc:	00000c10 	.word	0x00000c10
+     5c0:	00000c00 	.word	0x00000c00
+
+000005c4 <send_packet>:
+void send_packet(const unsigned char *buf, unsigned int len)
+{
+    int i;
+    unsigned long crc;
+
+    for (i=0; i < len; i++)
+     5c4:	e3510000 	cmp	r1, #0
+     5c8:	0a00000f 	beq	60c <send_packet+0x48>
+{
+     5cc:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+     5d0:	e59fe048 	ldr	lr, [pc, #72]	; 620 <send_packet+0x5c>
+     5d4:	e080c001 	add	ip, r0, r1
+     5d8:	e04ee000 	sub	lr, lr, r0
+     5dc:	e24cc001 	sub	ip, ip, #1
+     5e0:	e2400001 	sub	r0, r0, #1
+        ((volatile unsigned char *)NET_OUT_BUF)[i] = buf[i];
+     5e4:	e08e3000 	add	r3, lr, r0
+     5e8:	e5f02001 	ldrb	r2, [r0, #1]!
+    for (i=0; i < len; i++)
+     5ec:	e150000c 	cmp	r0, ip
+        ((volatile unsigned char *)NET_OUT_BUF)[i] = buf[i];
+     5f0:	e5c32000 	strb	r2, [r3]
+    for (i=0; i < len; i++)
+     5f4:	1afffffa 	bne	5e4 <send_packet+0x20>
+
+    *REG(NET_SEND_LEN) = len;
+     5f8:	e59f3024 	ldr	r3, [pc, #36]	; 624 <send_packet+0x60>
+    *REG(NET_SEND) = 1;
+     5fc:	e3a02001 	mov	r2, #1
+    *REG(NET_SEND_LEN) = len;
+     600:	e583100c 	str	r1, [r3, #12]
+    *REG(NET_SEND) = 1;
+     604:	e5832008 	str	r2, [r3, #8]
+}
+     608:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+    *REG(NET_SEND_LEN) = len;
+     60c:	e59f3010 	ldr	r3, [pc, #16]	; 624 <send_packet+0x60>
+    *REG(NET_SEND) = 1;
+     610:	e3a02001 	mov	r2, #1
+    *REG(NET_SEND_LEN) = len;
+     614:	e583100c 	str	r1, [r3, #12]
+    *REG(NET_SEND) = 1;
+     618:	e5832008 	str	r2, [r3, #8]
+     61c:	e12fff1e 	bx	lr
+     620:	f1c00801 	.word	0xf1c00801
+     624:	f1c00000 	.word	0xf1c00000
+
+00000628 <network_int_handler>:
+
+void network_int_handler(void)
+{
+     628:	e92d47f0 	push	{r4, r5, r6, r7, r8, r9, sl, lr}
+    unsigned int head;
+    unsigned int len;
+    int i;
+    void *inbuf;
+
+    head = *REG(NET_HEAD);
+     62c:	e59fa0ac 	ldr	sl, [pc, #172]	; 6e0 <network_int_handler+0xb8>
+     630:	e59a6000 	ldr	r6, [sl]
+    tail = *REG(NET_TAIL);
+     634:	e59a9004 	ldr	r9, [sl, #4]
+
+    while (tail != head) {
+     638:	e1560009 	cmp	r6, r9
+     63c:	0a000020 	beq	6c4 <network_int_handler+0x9c>
+        len = *REG(NET_IN_BUF_LEN);
+
+        for (i=0; i < len; i++)
+            netbuf[i] = ((unsigned char *)NET_IN_BUF)[i];
+
+        debug_dump_memory_bytes(netbuf, len);
+     640:	e59f809c 	ldr	r8, [pc, #156]	; 6e4 <network_int_handler+0xbc>
+     644:	e59f709c 	ldr	r7, [pc, #156]	; 6e8 <network_int_handler+0xc0>
+     648:	e08f8008 	add	r8, pc, r8
+        len = *REG(NET_IN_BUF_LEN);
+     64c:	e59a5010 	ldr	r5, [sl, #16]
+        for (i=0; i < len; i++)
+     650:	e3550000 	cmp	r5, #0
+     654:	0a00001d 	beq	6d0 <network_int_handler+0xa8>
+     658:	e59f408c 	ldr	r4, [pc, #140]	; 6ec <network_int_handler+0xc4>
+     65c:	e59f308c 	ldr	r3, [pc, #140]	; 6f0 <network_int_handler+0xc8>
+     660:	e08f4004 	add	r4, pc, r4
+     664:	e24506e3 	sub	r0, r5, #238026752	; 0xe300000
+     668:	e1a02004 	mov	r2, r4
+     66c:	e2400aff 	sub	r0, r0, #1044480	; 0xff000
+            netbuf[i] = ((unsigned char *)NET_IN_BUF)[i];
+     670:	e4d31001 	ldrb	r1, [r3], #1
+        for (i=0; i < len; i++)
+     674:	e1530000 	cmp	r3, r0
+            netbuf[i] = ((unsigned char *)NET_IN_BUF)[i];
+     678:	e4c21001 	strb	r1, [r2], #1
+        for (i=0; i < len; i++)
+     67c:	1afffffb 	bne	670 <network_int_handler+0x48>
+        debug_dump_memory_bytes(netbuf, len);
+     680:	e59f006c 	ldr	r0, [pc, #108]	; 6f4 <network_int_handler+0xcc>
+     684:	e1a01005 	mov	r1, r5
+     688:	e08f0000 	add	r0, pc, r0
+     68c:	eb000064 	bl	824 <debug_dump_memory_bytes>
+     690:	e59f3050 	ldr	r3, [pc, #80]	; 6e8 <network_int_handler+0xc0>
+     694:	e0851007 	add	r1, r5, r7
+        ((volatile unsigned char *)NET_OUT_BUF)[i] = buf[i];
+     698:	e4d42001 	ldrb	r2, [r4], #1
+     69c:	e4c32001 	strb	r2, [r3], #1
+    for (i=0; i < len; i++)
+     6a0:	e1530001 	cmp	r3, r1
+     6a4:	1afffffb 	bne	698 <network_int_handler+0x70>
+
+        send_packet(netbuf, len);
+
+        tail = (tail + 1) % NET_IN_BUF_COUNT;
+     6a8:	e2899001 	add	r9, r9, #1
+     6ac:	e209901f 	and	r9, r9, #31
+    *REG(NET_SEND) = 1;
+     6b0:	e3a03001 	mov	r3, #1
+    while (tail != head) {
+     6b4:	e1560009 	cmp	r6, r9
+    *REG(NET_SEND_LEN) = len;
+     6b8:	e58a500c 	str	r5, [sl, #12]
+    *REG(NET_SEND) = 1;
+     6bc:	e58a3008 	str	r3, [sl, #8]
+    while (tail != head) {
+     6c0:	1affffe1 	bne	64c <network_int_handler+0x24>
+    }
+    *REG(NET_TAIL) = tail;
+     6c4:	e59f3014 	ldr	r3, [pc, #20]	; 6e0 <network_int_handler+0xb8>
+     6c8:	e5839004 	str	r9, [r3, #4]
+}
+     6cc:	e8bd87f0 	pop	{r4, r5, r6, r7, r8, r9, sl, pc}
+        debug_dump_memory_bytes(netbuf, len);
+     6d0:	e1a01005 	mov	r1, r5
+     6d4:	e1a00008 	mov	r0, r8
+     6d8:	eb000051 	bl	824 <debug_dump_memory_bytes>
+    for (i=0; i < len; i++)
+     6dc:	eafffff1 	b	6a8 <network_int_handler+0x80>
+     6e0:	f1c00000 	.word	0xf1c00000
+     6e4:	0000f9b0 	.word	0x0000f9b0
+     6e8:	f1c00800 	.word	0xf1c00800
+     6ec:	0000f998 	.word	0x0000f998
+     6f0:	f1c01000 	.word	0xf1c01000
+     6f4:	0000f970 	.word	0x0000f970
+
+000006f8 <keyboard_int_handler>:
+    *key = *(REG(KYBD_DATA));
+    return 0;
+}
+
+void keyboard_int_handler(void)
+{
+     6f8:	e92d4030 	push	{r4, r5, lr}
+    unsigned int key;
+
+    while (read_keyboard_hardware(&key) >= 0) {
+        // we have something
+        if (!IS_BUF_FULL) {
+     6fc:	e59f106c 	ldr	r1, [pc, #108]	; 770 <keyboard_int_handler+0x78>
+            kb_buf[head] = key;
+     700:	e59fe06c 	ldr	lr, [pc, #108]	; 774 <keyboard_int_handler+0x7c>
+    if (*REG(KYBD_STAT) == 0)
+     704:	e59fc06c 	ldr	ip, [pc, #108]	; 778 <keyboard_int_handler+0x80>
+        if (!IS_BUF_FULL) {
+     708:	e59f006c 	ldr	r0, [pc, #108]	; 77c <keyboard_int_handler+0x84>
+     70c:	e08f1001 	add	r1, pc, r1
+            kb_buf[head] = key;
+     710:	e08fe00e 	add	lr, pc, lr
+    if (*REG(KYBD_STAT) == 0)
+     714:	e59c3000 	ldr	r3, [ip]
+     718:	e3530000 	cmp	r3, #0
+     71c:	08bd8030 	popeq	{r4, r5, pc}
+    *key = *(REG(KYBD_DATA));
+     720:	e59c5004 	ldr	r5, [ip, #4]
+        if (!IS_BUF_FULL) {
+     724:	e5913004 	ldr	r3, [r1, #4]
+     728:	e5914000 	ldr	r4, [r1]
+     72c:	e2433001 	sub	r3, r3, #1
+     730:	e2732000 	rsbs	r2, r3, #0
+     734:	e0022000 	and	r2, r2, r0
+     738:	e0033000 	and	r3, r3, r0
+     73c:	52623000 	rsbpl	r3, r2, #0
+     740:	e1530004 	cmp	r3, r4
+     744:	0afffff2 	beq	714 <keyboard_int_handler+0x1c>
+            kb_buf[head] = key;
+     748:	e5912000 	ldr	r2, [r1]
+            head = (head + 1) % KB_BUFSIZE;
+     74c:	e5913000 	ldr	r3, [r1]
+            kb_buf[head] = key;
+     750:	e78e5102 	str	r5, [lr, r2, lsl #2]
+            head = (head + 1) % KB_BUFSIZE;
+     754:	e2833001 	add	r3, r3, #1
+     758:	e2732000 	rsbs	r2, r3, #0
+     75c:	e0022000 	and	r2, r2, r0
+     760:	e0033000 	and	r3, r3, r0
+     764:	52623000 	rsbpl	r3, r2, #0
+     768:	e5813000 	str	r3, [r1]
+     76c:	eaffffe8 	b	714 <keyboard_int_handler+0x1c>
+     770:	000100ec 	.word	0x000100ec
+     774:	000100f0 	.word	0x000100f0
+     778:	f0c00000 	.word	0xf0c00000
+     77c:	000003ff 	.word	0x000003ff
+
+00000780 <read_keyboard>:
+    }
+}
+
+int read_keyboard(unsigned int *key)
+{
+    if (!IS_BUF_EMPTY) {
+     780:	e59f2058 	ldr	r2, [pc, #88]	; 7e0 <read_keyboard+0x60>
+     784:	e08f2002 	add	r2, pc, r2
+     788:	e5921004 	ldr	r1, [r2, #4]
+     78c:	e5923000 	ldr	r3, [r2]
+     790:	e1510003 	cmp	r1, r3
+     794:	0a00000f 	beq	7d8 <read_keyboard+0x58>
+{
+     798:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+        *key = kb_buf[tail];
+     79c:	e59f1040 	ldr	r1, [pc, #64]	; 7e4 <read_keyboard+0x64>
+     7a0:	e592e004 	ldr	lr, [r2, #4]
+        tail = (tail + 1) % KB_BUFSIZE;
+     7a4:	e5923004 	ldr	r3, [r2, #4]
+     7a8:	e59fc038 	ldr	ip, [pc, #56]	; 7e8 <read_keyboard+0x68>
+        *key = kb_buf[tail];
+     7ac:	e08f1001 	add	r1, pc, r1
+        tail = (tail + 1) % KB_BUFSIZE;
+     7b0:	e2833001 	add	r3, r3, #1
+        *key = kb_buf[tail];
+     7b4:	e791e10e 	ldr	lr, [r1, lr, lsl #2]
+        tail = (tail + 1) % KB_BUFSIZE;
+     7b8:	e2731000 	rsbs	r1, r3, #0
+     7bc:	e001100c 	and	r1, r1, ip
+     7c0:	e003300c 	and	r3, r3, ip
+     7c4:	52613000 	rsbpl	r3, r1, #0
+        *key = kb_buf[tail];
+     7c8:	e580e000 	str	lr, [r0]
+        tail = (tail + 1) % KB_BUFSIZE;
+     7cc:	e5823004 	str	r3, [r2, #4]
+        return 0;
+     7d0:	e3a00000 	mov	r0, #0
+    }
+
+    return -1;
+}
+     7d4:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+    return -1;
+     7d8:	e3e00000 	mvn	r0, #0
+}
+     7dc:	e12fff1e 	bx	lr
+     7e0:	00010074 	.word	0x00010074
+     7e4:	00010054 	.word	0x00010054
+     7e8:	000003ff 	.word	0x000003ff
+
+000007ec <dputs>:
+#include "debug.h"
+#include "memmap.h"
+
+void dputs(const char *str)
+{
+    while (*str) {
+     7ec:	e5d03000 	ldrb	r3, [r0]
+     7f0:	e3530000 	cmp	r3, #0
+     7f4:	012fff1e 	bxeq	lr
+    }
+}
+
+void dputchar(char c)
+{
+    *REG(DEBUG_STDOUT) = c;
+     7f8:	e59f2010 	ldr	r2, [pc, #16]	; 810 <dputs+0x24>
+     7fc:	e5823000 	str	r3, [r2]
+    while (*str) {
+     800:	e5f03001 	ldrb	r3, [r0, #1]!
+     804:	e3530000 	cmp	r3, #0
+     808:	1afffffb 	bne	7fc <dputs+0x10>
+     80c:	e12fff1e 	bx	lr
+     810:	f1800000 	.word	0xf1800000
+
+00000814 <dputchar>:
+    *REG(DEBUG_STDOUT) = c;
+     814:	e59f3004 	ldr	r3, [pc, #4]	; 820 <dputchar+0xc>
+     818:	e5830000 	str	r0, [r3]
+}
+     81c:	e12fff1e 	bx	lr
+     820:	f1800000 	.word	0xf1800000
+
+00000824 <debug_dump_memory_bytes>:
+
+void debug_dump_memory_bytes(const void *mem, int len)
+{
+    *REG(DEBUG_MEMDUMPADDR) = (unsigned int)mem;
+     824:	e59f3010 	ldr	r3, [pc, #16]	; 83c <debug_dump_memory_bytes+0x18>
+    *REG(DEBUG_MEMDUMPLEN) = len;
+    *REG(DEBUG_MEMDUMP_BYTE) = 1;
+     828:	e3a02001 	mov	r2, #1
+    *REG(DEBUG_MEMDUMPADDR) = (unsigned int)mem;
+     82c:	e583000c 	str	r0, [r3, #12]
+    *REG(DEBUG_MEMDUMPLEN) = len;
+     830:	e5831010 	str	r1, [r3, #16]
+    *REG(DEBUG_MEMDUMP_BYTE) = 1;
+     834:	e5832014 	str	r2, [r3, #20]
+}
+     838:	e12fff1e 	bx	lr
+     83c:	f1800000 	.word	0xf1800000
+
+00000840 <debug_dump_memory_words>:
+
+void debug_dump_memory_words(const void *mem, int len)
+{
+    *REG(DEBUG_MEMDUMPADDR) = (unsigned int)mem;
+     840:	e59f3010 	ldr	r3, [pc, #16]	; 858 <debug_dump_memory_words+0x18>
+    *REG(DEBUG_MEMDUMPLEN) = len;
+    *REG(DEBUG_MEMDUMP_WORD) = 1;
+     844:	e3a02001 	mov	r2, #1
+    *REG(DEBUG_MEMDUMPADDR) = (unsigned int)mem;
+     848:	e583000c 	str	r0, [r3, #12]
+    *REG(DEBUG_MEMDUMPLEN) = len;
+     84c:	e5831010 	str	r1, [r3, #16]
+    *REG(DEBUG_MEMDUMP_WORD) = 1;
+     850:	e583201c 	str	r2, [r3, #28]
+}
+     854:	e12fff1e 	bx	lr
+     858:	f1800000 	.word	0xf1800000
+
+0000085c <clear_display>:
+    // clips the height to the full framebuffer size
+    if (y + h > SCREEN_BUF_Y)
+        h = SCREEN_BUF_Y - y; // clip the source rect
+
+    // start the copy
+    dest = &fb[x + y * SCREEN_X];
+     85c:	e59f301c 	ldr	r3, [pc, #28]	; 880 <clear_display+0x24>
+    stride = SCREEN_X - w;
+    for (i = 0; i < h; i++) {
+     860:	e59f201c 	ldr	r2, [pc, #28]	; 884 <clear_display+0x28>
+     864:	e2831c0a 	add	r1, r3, #2560	; 0xa00
+        for (j = 0; j < w; j++) {
+            *dest = color;
+     868:	e4830004 	str	r0, [r3], #4
+        for (j = 0; j < w; j++) {
+     86c:	e1530001 	cmp	r3, r1
+     870:	1afffffc 	bne	868 <clear_display+0xc>
+    for (i = 0; i < h; i++) {
+     874:	e1530002 	cmp	r3, r2
+     878:	1afffff9 	bne	864 <clear_display+0x8>
+     87c:	e12fff1e 	bx	lr
+     880:	f0400000 	.word	0xf0400000
+     884:	f052c000 	.word	0xf052c000
+
+00000888 <draw_pixel>:
+    fb[x*y] = color;
+     888:	e0030190 	mul	r3, r0, r1
+     88c:	e1a01103 	lsl	r1, r3, #2
+     890:	e241153f 	sub	r1, r1, #264241152	; 0xfc00000
+     894:	e5812000 	str	r2, [r1]
+}
+     898:	e12fff1e 	bx	lr
+
+0000089c <get_fb>:
+}
+     89c:	e59f0000 	ldr	r0, [pc]	; 8a4 <get_fb+0x8>
+     8a0:	e12fff1e 	bx	lr
+     8a4:	f0400000 	.word	0xf0400000
+
+000008a8 <fill_rect>:
+{
+     8a8:	e92d4070 	push	{r4, r5, r6, lr}
+     8ac:	e59dc010 	ldr	ip, [sp, #16]
+    if (x < 0 || x > SCREEN_X)
+     8b0:	e3500d0a 	cmp	r0, #640	; 0x280
+     8b4:	88bd8070 	pophi	{r4, r5, r6, pc}
+    if (y < 0 || y > SCREEN_BUF_Y)
+     8b8:	e59fe08c 	ldr	lr, [pc, #140]	; 94c <fill_rect+0xa4>
+     8bc:	e151000e 	cmp	r1, lr
+     8c0:	88bd8070 	pophi	{r4, r5, r6, pc}
+    if (w < 0 || h < 0)
+     8c4:	e192e003 	orrs	lr, r2, r3
+     8c8:	48bd8070 	popmi	{r4, r5, r6, pc}
+    if (x + w > SCREEN_X)
+     8cc:	e080e002 	add	lr, r0, r2
+     8d0:	e35e0d0a 	cmp	lr, #640	; 0x280
+    if (y + h > SCREEN_BUF_Y)
+     8d4:	e59fe070 	ldr	lr, [pc, #112]	; 94c <fill_rect+0xa4>
+     8d8:	e0814003 	add	r4, r1, r3
+     8dc:	d2625d0a 	rsble	r5, r2, #640	; 0x280
+        w = SCREEN_X - x; // clip the source rect
+     8e0:	c2602d0a 	rsbgt	r2, r0, #640	; 0x280
+     8e4:	c1a05000 	movgt	r5, r0
+    if (y + h > SCREEN_BUF_Y)
+     8e8:	e154000e 	cmp	r4, lr
+        h = SCREEN_BUF_Y - y; // clip the source rect
+     8ec:	c04e3001 	subgt	r3, lr, r1
+    dest = &fb[x + y * SCREEN_X];
+     8f0:	e0811101 	add	r1, r1, r1, lsl #2
+     8f4:	e080e381 	add	lr, r0, r1, lsl #7
+     8f8:	e1a0e10e 	lsl	lr, lr, #2
+    for (i = 0; i < h; i++) {
+     8fc:	e3530000 	cmp	r3, #0
+    dest = &fb[x + y * SCREEN_X];
+     900:	e24ee53f 	sub	lr, lr, #264241152	; 0xfc00000
+    for (i = 0; i < h; i++) {
+     904:	08bd8070 	popeq	{r4, r5, r6, pc}
+            dest++;
+        }
+        // increment the pointer by stride
+        dest += stride;
+     908:	e1a05105 	lsl	r5, r5, #2
+     90c:	e1a06102 	lsl	r6, r2, #2
+    for (i = 0; i < h; i++) {
+     910:	e3a04000 	mov	r4, #0
+        for (j = 0; j < w; j++) {
+     914:	e3520000 	cmp	r2, #0
+     918:	11a0000e 	movne	r0, lr
+     91c:	13a01000 	movne	r1, #0
+     920:	0a000004 	beq	938 <fill_rect+0x90>
+     924:	e2811001 	add	r1, r1, #1
+     928:	e1520001 	cmp	r2, r1
+            *dest = color;
+     92c:	e480c004 	str	ip, [r0], #4
+        for (j = 0; j < w; j++) {
+     930:	1afffffb 	bne	924 <fill_rect+0x7c>
+     934:	e08ee006 	add	lr, lr, r6
+    for (i = 0; i < h; i++) {
+     938:	e2844001 	add	r4, r4, #1
+     93c:	e1540003 	cmp	r4, r3
+        dest += stride;
+     940:	e08ee005 	add	lr, lr, r5
+    for (i = 0; i < h; i++) {
+     944:	1afffff2 	bne	914 <fill_rect+0x6c>
+     948:	e8bd8070 	pop	{r4, r5, r6, pc}
+     94c:	00000666 	.word	0x00000666
+
+00000950 <copy_rect>:
+{
+    int i, j;
+    unsigned int *src, *dest;
+    int stride;
+
+    if (x < 0 || x > SCREEN_X)
+     950:	e3500d0a 	cmp	r0, #640	; 0x280
+     954:	812fff1e 	bxhi	lr
+        return;
+    if (y < 0 || y > SCREEN_BUF_Y)
+     958:	e59fc0fc 	ldr	ip, [pc, #252]	; a5c <copy_rect+0x10c>
+     95c:	e151000c 	cmp	r1, ip
+     960:	812fff1e 	bxhi	lr
+{
+     964:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
+        return;
+    if (x2 < 0 || x2 > SCREEN_X)
+     968:	e59de018 	ldr	lr, [sp, #24]
+     96c:	e35e0d0a 	cmp	lr, #640	; 0x280
+     970:	88bd81f0 	pophi	{r4, r5, r6, r7, r8, pc}
+        return;
+    if (y2 < 0 || y2 > SCREEN_BUF_Y)
+     974:	e59de01c 	ldr	lr, [sp, #28]
+     978:	e15e000c 	cmp	lr, ip
+     97c:	88bd81f0 	pophi	{r4, r5, r6, r7, r8, pc}
+        return;
+    if (w < 0 || h < 0)
+     980:	e192c003 	orrs	ip, r2, r3
+     984:	48bd81f0 	popmi	{r4, r5, r6, r7, r8, pc}
+        return;
+
+    // clips the width, in case the source or dest rect goes off the side
+    if (x + w > SCREEN_X)
+     988:	e080c002 	add	ip, r0, r2
+     98c:	e35c0d0a 	cmp	ip, #640	; 0x280
+        w = SCREEN_X - x; // clip the source rect
+    if (x2 + w > SCREEN_X)
+     990:	e59dc018 	ldr	ip, [sp, #24]
+        w = SCREEN_X - x; // clip the source rect
+     994:	c2602d0a 	rsbgt	r2, r0, #640	; 0x280
+    if (x2 + w > SCREEN_X)
+     998:	e082c00c 	add	ip, r2, ip
+     99c:	e35c0d0a 	cmp	ip, #640	; 0x280
+        w = SCREEN_X - x2; // clip the dest rect
+     9a0:	c59d2018 	ldrgt	r2, [sp, #24]
+
+    // clips the height to the full framebuffer size
+    if (y + h > SCREEN_BUF_Y)
+     9a4:	e59fc0b0 	ldr	ip, [pc, #176]	; a5c <copy_rect+0x10c>
+     9a8:	e081e003 	add	lr, r1, r3
+     9ac:	d2627d0a 	rsble	r7, r2, #640	; 0x280
+        w = SCREEN_X - x2; // clip the dest rect
+     9b0:	c2622d0a 	rsbgt	r2, r2, #640	; 0x280
+     9b4:	c59d7018 	ldrgt	r7, [sp, #24]
+    if (y + h > SCREEN_BUF_Y)
+     9b8:	e15e000c 	cmp	lr, ip
+        h = SCREEN_BUF_Y - y; // clip the source rect
+    if (y2 + h > SCREEN_BUF_Y)
+     9bc:	e59de01c 	ldr	lr, [sp, #28]
+        h = SCREEN_BUF_Y - y; // clip the source rect
+     9c0:	c04c3001 	subgt	r3, ip, r1
+    if (y2 + h > SCREEN_BUF_Y)
+     9c4:	e59fc090 	ldr	ip, [pc, #144]	; a5c <copy_rect+0x10c>
+     9c8:	e083e00e 	add	lr, r3, lr
+     9cc:	e15e000c 	cmp	lr, ip
+        h = SCREEN_BUF_Y - y2; // clip the dest rect
+     9d0:	c59d301c 	ldrgt	r3, [sp, #28]
+
+    // start the copy
+    src = &fb[x + y * SCREEN_X];
+     9d4:	e0811101 	add	r1, r1, r1, lsl #2
+        h = SCREEN_BUF_Y - y2; // clip the dest rect
+     9d8:	c04c3003 	subgt	r3, ip, r3
+    dest = &fb[x2 + y2 * SCREEN_X];
+     9dc:	e59dc01c 	ldr	ip, [sp, #28]
+    src = &fb[x + y * SCREEN_X];
+     9e0:	e0804381 	add	r4, r0, r1, lsl #7
+    dest = &fb[x2 + y2 * SCREEN_X];
+     9e4:	e59d1018 	ldr	r1, [sp, #24]
+     9e8:	e08c510c 	add	r5, ip, ip, lsl #2
+     9ec:	e0815385 	add	r5, r1, r5, lsl #7
+    src = &fb[x + y * SCREEN_X];
+     9f0:	e1a04104 	lsl	r4, r4, #2
+    dest = &fb[x2 + y2 * SCREEN_X];
+     9f4:	e1a05105 	lsl	r5, r5, #2
+    stride = SCREEN_X - w;
+    for (i = 0; i < h; i++) {
+     9f8:	e3530000 	cmp	r3, #0
+    src = &fb[x + y * SCREEN_X];
+     9fc:	e244453f 	sub	r4, r4, #264241152	; 0xfc00000
+    dest = &fb[x2 + y2 * SCREEN_X];
+     a00:	e245553f 	sub	r5, r5, #264241152	; 0xfc00000
+    for (i = 0; i < h; i++) {
+     a04:	08bd81f0 	popeq	{r4, r5, r6, r7, r8, pc}
+            *dest = *src;
+            dest++;
+            src++;
+        }
+        // increment both pointers by stride
+        dest += stride;
+     a08:	e1a07107 	lsl	r7, r7, #2
+     a0c:	e1a08102 	lsl	r8, r2, #2
+    for (i = 0; i < h; i++) {
+     a10:	e3a06000 	mov	r6, #0
+        for (j = 0; j < w; j++) {
+     a14:	e3520000 	cmp	r2, #0
+     a18:	1244c004 	subne	ip, r4, #4
+     a1c:	11a00005 	movne	r0, r5
+     a20:	13a01000 	movne	r1, #0
+     a24:	0a000006 	beq	a44 <copy_rect+0xf4>
+            *dest = *src;
+     a28:	e5bce004 	ldr	lr, [ip, #4]!
+        for (j = 0; j < w; j++) {
+     a2c:	e2811001 	add	r1, r1, #1
+     a30:	e1520001 	cmp	r2, r1
+            *dest = *src;
+     a34:	e480e004 	str	lr, [r0], #4
+        for (j = 0; j < w; j++) {
+     a38:	1afffffa 	bne	a28 <copy_rect+0xd8>
+     a3c:	e0855008 	add	r5, r5, r8
+     a40:	e0844008 	add	r4, r4, r8
+    for (i = 0; i < h; i++) {
+     a44:	e2866001 	add	r6, r6, #1
+     a48:	e1530006 	cmp	r3, r6
+        dest += stride;
+     a4c:	e0855007 	add	r5, r5, r7
+        src += stride;
+     a50:	e0844007 	add	r4, r4, r7
+    for (i = 0; i < h; i++) {
+     a54:	1affffee 	bne	a14 <copy_rect+0xc4>
+     a58:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+     a5c:	00000666 	.word	0x00000666
+
+00000a60 <blit>:
+    }
+}
+
+// blits a rect to the screen from memory
+void blit(unsigned int *buf, int x, int y, int w, int h)
+{
+     a60:	e92d43f0 	push	{r4, r5, r6, r7, r8, r9, lr}
+     a64:	e59d601c 	ldr	r6, [sp, #28]
+    int i, j;
+    unsigned int *src, *dest;
+    int src_stride = 0;
+    int dest_stride;
+
+    if (x < 0 || x > SCREEN_X)
+     a68:	e3510d0a 	cmp	r1, #640	; 0x280
+     a6c:	88bd83f0 	pophi	{r4, r5, r6, r7, r8, r9, pc}
+        return;
+    if (y < 0 || y > SCREEN_BUF_Y)
+     a70:	e59fc0ac 	ldr	ip, [pc, #172]	; b24 <blit+0xc4>
+     a74:	e152000c 	cmp	r2, ip
+     a78:	88bd83f0 	pophi	{r4, r5, r6, r7, r8, r9, pc}
+        return;
+    if (w < 0 || h < 0)
+     a7c:	e1a0cfa6 	lsr	ip, r6, #31
+     a80:	e19ccfa3 	orrs	ip, ip, r3, lsr #31
+     a84:	18bd83f0 	popne	{r4, r5, r6, r7, r8, r9, pc}
+        return;
+
+    // clips the width, in case the source or dest rect goes off the side
+    if (x + w > SCREEN_X) {
+     a88:	e081e003 	add	lr, r1, r3
+     a8c:	e35e0d0a 	cmp	lr, #640	; 0x280
+        src_stride = w - (SCREEN_X - x);
+     a90:	c261ed0a 	rsbgt	lr, r1, #640	; 0x280
+     a94:	d2639d0a 	rsble	r9, r3, #640	; 0x280
+    if (x + w > SCREEN_X) {
+     a98:	d1a0e003 	movle	lr, r3
+        src_stride = w - (SCREEN_X - x);
+     a9c:	c043c00e 	subgt	ip, r3, lr
+        w = SCREEN_X - x; // clip the source rect
+    }
+
+    // clips the height to the full framebuffer size
+    if (y + h > SCREEN_BUF_Y)
+     aa0:	e59f307c 	ldr	r3, [pc, #124]	; b24 <blit+0xc4>
+     aa4:	e0824006 	add	r4, r2, r6
+        src_stride = w - (SCREEN_X - x);
+     aa8:	c1a09001 	movgt	r9, r1
+    if (y + h > SCREEN_BUF_Y)
+     aac:	e1540003 	cmp	r4, r3
+        h = SCREEN_BUF_Y - y; // clip the source rect
+     ab0:	c0436002 	subgt	r6, r3, r2
+
+    // start the copy
+    src = buf;
+    dest = &fb[x + y * SCREEN_X];
+     ab4:	e0822102 	add	r2, r2, r2, lsl #2
+     ab8:	e0814382 	add	r4, r1, r2, lsl #7
+     abc:	e1a04104 	lsl	r4, r4, #2
+    dest_stride = SCREEN_X - w;
+    for (i = 0; i < h; i++) {
+     ac0:	e3560000 	cmp	r6, #0
+    dest = &fb[x + y * SCREEN_X];
+     ac4:	e244453f 	sub	r4, r4, #264241152	; 0xfc00000
+    for (i = 0; i < h; i++) {
+     ac8:	08bd83f0 	popeq	{r4, r5, r6, r7, r8, r9, pc}
+            *dest = *src;
+            dest++;
+            src++;
+        }
+        // increment both pointers by stride
+        dest += dest_stride;
+     acc:	e1a09109 	lsl	r9, r9, #2
+        src += src_stride;
+     ad0:	e1a0810c 	lsl	r8, ip, #2
+     ad4:	e1a0710e 	lsl	r7, lr, #2
+    for (i = 0; i < h; i++) {
+     ad8:	e3a05000 	mov	r5, #0
+        for (j = 0; j < w; j++) {
+     adc:	e35e0000 	cmp	lr, #0
+     ae0:	12401004 	subne	r1, r0, #4
+     ae4:	11a02004 	movne	r2, r4
+     ae8:	13a03000 	movne	r3, #0
+     aec:	0a000006 	beq	b0c <blit+0xac>
+            *dest = *src;
+     af0:	e5b1c004 	ldr	ip, [r1, #4]!
+        for (j = 0; j < w; j++) {
+     af4:	e2833001 	add	r3, r3, #1
+     af8:	e15e0003 	cmp	lr, r3
+            *dest = *src;
+     afc:	e482c004 	str	ip, [r2], #4
+        for (j = 0; j < w; j++) {
+     b00:	1afffffa 	bne	af0 <blit+0x90>
+     b04:	e0844007 	add	r4, r4, r7
+     b08:	e0800007 	add	r0, r0, r7
+    for (i = 0; i < h; i++) {
+     b0c:	e2855001 	add	r5, r5, #1
+     b10:	e1560005 	cmp	r6, r5
+        dest += dest_stride;
+     b14:	e0844009 	add	r4, r4, r9
+        src += src_stride;
+     b18:	e0800008 	add	r0, r0, r8
+    for (i = 0; i < h; i++) {
+     b1c:	1affffee 	bne	adc <blit+0x7c>
+     b20:	e8bd83f0 	pop	{r4, r5, r6, r7, r8, r9, pc}
+     b24:	00000666 	.word	0x00000666
+
+00000b28 <test_display>:
+{
+    int i;
+    static foo = 0;
+
+    for (i=0; i < SCREEN_X * SCREEN_Y; i++) {
+        fb[i] = i + foo;
+     b28:	e59f3038 	ldr	r3, [pc, #56]	; b68 <test_display+0x40>
+     b2c:	e59f2038 	ldr	r2, [pc, #56]	; b6c <test_display+0x44>
+     b30:	e08f3003 	add	r3, pc, r3
+     b34:	e5930000 	ldr	r0, [r3]
+    for (i=0; i < SCREEN_X * SCREEN_Y; i++) {
+     b38:	e59f1030 	ldr	r1, [pc, #48]	; b70 <test_display+0x48>
+     b3c:	e1a03000 	mov	r3, r0
+        fb[i] = i + foo;
+     b40:	e4823004 	str	r3, [r2], #4
+    for (i=0; i < SCREEN_X * SCREEN_Y; i++) {
+     b44:	e1520001 	cmp	r2, r1
+     b48:	e2833001 	add	r3, r3, #1
+     b4c:	1afffffb 	bne	b40 <test_display+0x18>
+    }
+
+    foo++;
+     b50:	e59f301c 	ldr	r3, [pc, #28]	; b74 <test_display+0x4c>
+     b54:	e2800001 	add	r0, r0, #1
+     b58:	e08f3003 	add	r3, pc, r3
+     b5c:	e5830000 	str	r0, [r3]
+
+    return 0;
+}
+     b60:	e3a00000 	mov	r0, #0
+     b64:	e12fff1e 	bx	lr
+     b68:	00010cd0 	.word	0x00010cd0
+     b6c:	f0400000 	.word	0xf0400000
+     b70:	f052c000 	.word	0xf052c000
+     b74:	00010ca8 	.word	0x00010ca8
+
+00000b78 <draw_char.part.0>:
+    // draw this char into a buffer
+    ptr = char_bitmap;
+    for (i=0; i<CHAR_HEIGHT; i++) {
+        line = FONT[c*CHAR_HEIGHT + i];
+        for (j=0; j<CHAR_WIDTH; j++) {
+            *ptr = (line & 0x1) ? draw_color : back_color;
+     b78:	e59f3074 	ldr	r3, [pc, #116]	; bf4 <draw_char.part.0+0x7c>
+void draw_char(unsigned char c, int x, int y)
+     b7c:	e92d40f0 	push	{r4, r5, r6, r7, lr}
+     b80:	e59f6070 	ldr	r6, [pc, #112]	; bf8 <draw_char.part.0+0x80>
+            *ptr = (line & 0x1) ? draw_color : back_color;
+     b84:	e08f3003 	add	r3, pc, r3
+     b88:	e5935000 	ldr	r5, [r3]
+     b8c:	e5934004 	ldr	r4, [r3, #4]
+void draw_char(unsigned char c, int x, int y)
+     b90:	e24ddf4b 	sub	sp, sp, #300	; 0x12c
+     b94:	e08f6006 	add	r6, pc, r6
+        line = FONT[c*CHAR_HEIGHT + i];
+     b98:	e0800080 	add	r0, r0, r0, lsl #1
+     b9c:	e0866100 	add	r6, r6, r0, lsl #2
+     ba0:	e28de020 	add	lr, sp, #32
+     ba4:	e28d7d05 	add	r7, sp, #320	; 0x140
+     ba8:	e4d60001 	ldrb	r0, [r6], #1
+     bac:	e24e3018 	sub	r3, lr, #24
+            *ptr = (line & 0x1) ? draw_color : back_color;
+     bb0:	e3100001 	tst	r0, #1
+     bb4:	11a0c004 	movne	ip, r4
+     bb8:	01a0c005 	moveq	ip, r5
+     bbc:	e483c004 	str	ip, [r3], #4
+        for (j=0; j<CHAR_WIDTH; j++) {
+     bc0:	e153000e 	cmp	r3, lr
+            line = line >> 1;
+     bc4:	e1a000a0 	lsr	r0, r0, #1
+        for (j=0; j<CHAR_WIDTH; j++) {
+     bc8:	1afffff8 	bne	bb0 <draw_char.part.0+0x38>
+     bcc:	e283e018 	add	lr, r3, #24
+    for (i=0; i<CHAR_HEIGHT; i++) {
+     bd0:	e157000e 	cmp	r7, lr
+     bd4:	1afffff3 	bne	ba8 <draw_char.part.0+0x30>
+            ptr++;
+        }
+    }
+
+    // blit it to the screen
+    blit(char_bitmap, x, y, CHAR_WIDTH, CHAR_HEIGHT);
+     bd8:	e3a0300c 	mov	r3, #12
+     bdc:	e58d3000 	str	r3, [sp]
+     be0:	e28d0008 	add	r0, sp, #8
+     be4:	e3a03006 	mov	r3, #6
+     be8:	ebffff9c 	bl	a60 <blit>
+}
+     bec:	e28ddf4b 	add	sp, sp, #300	; 0x12c
+     bf0:	e8bd80f0 	pop	{r4, r5, r6, r7, pc}
+     bf4:	00010c80 	.word	0x00010c80
+     bf8:	00000624 	.word	0x00000624
+
+00000bfc <draw_char>:
+    if (!text_initialized)
+     bfc:	e59f3010 	ldr	r3, [pc, #16]	; c14 <draw_char+0x18>
+     c00:	e08f3003 	add	r3, pc, r3
+     c04:	e5933008 	ldr	r3, [r3, #8]
+     c08:	e3530000 	cmp	r3, #0
+     c0c:	012fff1e 	bxeq	lr
+     c10:	eaffffd8 	b	b78 <draw_char.part.0>
+     c14:	00010c04 	.word	0x00010c04
+
+00000c18 <set_text_color>:
+
+void set_text_color(unsigned int fg, unsigned int bg)
+{
+    draw_color = fg;
+     c18:	e59f300c 	ldr	r3, [pc, #12]	; c2c <set_text_color+0x14>
+     c1c:	e08f3003 	add	r3, pc, r3
+     c20:	e5830004 	str	r0, [r3, #4]
+    back_color = bg;
+     c24:	e5831000 	str	r1, [r3]
+}
+     c28:	e12fff1e 	bx	lr
+     c2c:	00010be8 	.word	0x00010be8
+
+00000c30 <initialize_text>:
+
+int initialize_text(void)
+{
+    back_color = 0x0;
+     c30:	e59f3038 	ldr	r3, [pc, #56]	; c70 <initialize_text+0x40>
+{
+     c34:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    back_color = 0x0;
+     c38:	e08f3003 	add	r3, pc, r3
+     c3c:	e3a00000 	mov	r0, #0
+    draw_color = 0xffffffff;
+     c40:	e3e0e000 	mvn	lr, #0
+    char_x = char_y = 0;
+
+    num_cols = SCREEN_X / CHAR_WIDTH;
+     c44:	e3a0c06a 	mov	ip, #106	; 0x6a
+    num_rows = SCREEN_Y / CHAR_HEIGHT;
+     c48:	e3a01028 	mov	r1, #40	; 0x28
+    text_initialized = 1;
+     c4c:	e3a02001 	mov	r2, #1
+    draw_color = 0xffffffff;
+     c50:	e583e004 	str	lr, [r3, #4]
+    num_cols = SCREEN_X / CHAR_WIDTH;
+     c54:	e583c014 	str	ip, [r3, #20]
+    num_rows = SCREEN_Y / CHAR_HEIGHT;
+     c58:	e5831018 	str	r1, [r3, #24]
+    text_initialized = 1;
+     c5c:	e5832008 	str	r2, [r3, #8]
+    back_color = 0x0;
+     c60:	e5830000 	str	r0, [r3]
+    char_x = char_y = 0;
+     c64:	e583000c 	str	r0, [r3, #12]
+     c68:	e5830010 	str	r0, [r3, #16]
+
+    return 0;
+}
+     c6c:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+     c70:	00010bcc 	.word	0x00010bcc
+
+00000c74 <putchar>:
+        str++;
+    }
+}
+
+void putchar(char c)
+{
+     c74:	e92d4030 	push	{r4, r5, lr}
+    if (!text_initialized)
+     c78:	e59f40e0 	ldr	r4, [pc, #224]	; d60 <putchar+0xec>
+{
+     c7c:	e24dd00c 	sub	sp, sp, #12
+    if (!text_initialized)
+     c80:	e08f4004 	add	r4, pc, r4
+     c84:	e5942008 	ldr	r2, [r4, #8]
+     c88:	e3520000 	cmp	r2, #0
+     c8c:	0a000026 	beq	d2c <putchar+0xb8>
+        return;
+
+    if (c == '\n' || c == '\r') {
+     c90:	e350000d 	cmp	r0, #13
+     c94:	1350000a 	cmpne	r0, #10
+     c98:	e594200c 	ldr	r2, [r4, #12]
+     c9c:	1a000024 	bne	d34 <putchar+0xc0>
+        char_x = 0;
+        char_y++;
+     ca0:	e2822001 	add	r2, r2, #1
+        char_x = 0;
+     ca4:	e3a03000 	mov	r3, #0
+        char_y++;
+     ca8:	e584200c 	str	r2, [r4, #12]
+        char_x = 0;
+     cac:	e5843010 	str	r3, [r4, #16]
+    } else {
+        draw_char(c, char_x * CHAR_WIDTH, char_y * CHAR_HEIGHT);
+        char_x++;
+    }
+    if (char_x >= num_cols) {
+     cb0:	e59f10ac 	ldr	r1, [pc, #172]	; d64 <putchar+0xf0>
+        char_x = 0;
+        char_y++;
+    }
+    if (char_y >= num_rows) {
+     cb4:	e59f40ac 	ldr	r4, [pc, #172]	; d68 <putchar+0xf4>
+    if (char_x >= num_cols) {
+     cb8:	e08f1001 	add	r1, pc, r1
+     cbc:	e5910014 	ldr	r0, [r1, #20]
+    if (char_y >= num_rows) {
+     cc0:	e08f4004 	add	r4, pc, r4
+    if (char_x >= num_cols) {
+     cc4:	e1500003 	cmp	r0, r3
+        char_x = 0;
+     cc8:	d3a03000 	movle	r3, #0
+     ccc:	d5813010 	strle	r3, [r1, #16]
+    if (char_y >= num_rows) {
+     cd0:	e5943018 	ldr	r3, [r4, #24]
+        char_y++;
+     cd4:	d2822001 	addle	r2, r2, #1
+     cd8:	d581200c 	strle	r2, [r1, #12]
+    if (char_y >= num_rows) {
+     cdc:	e1530002 	cmp	r3, r2
+     ce0:	ca000011 	bgt	d2c <putchar+0xb8>
+        // scroll up
+        copy_rect(0, CHAR_HEIGHT, SCREEN_X, SCREEN_Y - CHAR_HEIGHT, 0, 0);
+     ce4:	e3a05000 	mov	r5, #0
+     ce8:	e1a00005 	mov	r0, r5
+     cec:	e3a03f75 	mov	r3, #468	; 0x1d4
+     cf0:	e3a02d0a 	mov	r2, #640	; 0x280
+     cf4:	e3a0100c 	mov	r1, #12
+     cf8:	e58d5004 	str	r5, [sp, #4]
+     cfc:	e58d5000 	str	r5, [sp]
+     d00:	ebffff12 	bl	950 <copy_rect>
+        char_y--;
+     d04:	e594c00c 	ldr	ip, [r4, #12]
+        fill_rect(0, SCREEN_Y - CHAR_HEIGHT, SCREEN_X, CHAR_HEIGHT, back_color);
+     d08:	e5943000 	ldr	r3, [r4]
+        char_y--;
+     d0c:	e24cc001 	sub	ip, ip, #1
+        fill_rect(0, SCREEN_Y - CHAR_HEIGHT, SCREEN_X, CHAR_HEIGHT, back_color);
+     d10:	e58d3000 	str	r3, [sp]
+     d14:	e1a00005 	mov	r0, r5
+     d18:	e3a0300c 	mov	r3, #12
+     d1c:	e3a02d0a 	mov	r2, #640	; 0x280
+     d20:	e3a01f75 	mov	r1, #468	; 0x1d4
+        char_y--;
+     d24:	e584c00c 	str	ip, [r4, #12]
+        fill_rect(0, SCREEN_Y - CHAR_HEIGHT, SCREEN_X, CHAR_HEIGHT, back_color);
+     d28:	ebfffede 	bl	8a8 <fill_rect>
+    }
+}
+     d2c:	e28dd00c 	add	sp, sp, #12
+     d30:	e8bd8030 	pop	{r4, r5, pc}
+        draw_char(c, char_x * CHAR_WIDTH, char_y * CHAR_HEIGHT);
+     d34:	e5941010 	ldr	r1, [r4, #16]
+     d38:	e0822082 	add	r2, r2, r2, lsl #1
+     d3c:	e0811081 	add	r1, r1, r1, lsl #1
+     d40:	e1a02102 	lsl	r2, r2, #2
+     d44:	e1a01081 	lsl	r1, r1, #1
+     d48:	ebffff8a 	bl	b78 <draw_char.part.0>
+        char_x++;
+     d4c:	e5943010 	ldr	r3, [r4, #16]
+     d50:	e594200c 	ldr	r2, [r4, #12]
+     d54:	e2833001 	add	r3, r3, #1
+     d58:	e5843010 	str	r3, [r4, #16]
+     d5c:	eaffffd3 	b	cb0 <putchar+0x3c>
+     d60:	00010b84 	.word	0x00010b84
+     d64:	00010b4c 	.word	0x00010b4c
+     d68:	00010b44 	.word	0x00010b44
+
+00000d6c <puts>:
+{
+     d6c:	e92d4010 	push	{r4, lr}
+     d70:	e1a04000 	mov	r4, r0
+    while (*str) {
+     d74:	e5d00000 	ldrb	r0, [r0]
+     d78:	e3500000 	cmp	r0, #0
+     d7c:	08bd8010 	popeq	{r4, pc}
+        putchar(*str);
+     d80:	ebffffbb 	bl	c74 <putchar>
+    while (*str) {
+     d84:	e5f40001 	ldrb	r0, [r4, #1]!
+     d88:	e3500000 	cmp	r0, #0
+     d8c:	1afffffb 	bne	d80 <puts+0x14>
+     d90:	e8bd8010 	pop	{r4, pc}
+
+00000d94 <block_is_present>:
+#include "block.h"
+#include "memmap.h"
+
+int block_is_present(void)
+{
+    return (*REG(SYSINFO_FEATURES) & SYSINFO_FEATURE_BLOCKDEV) ? 1 : 0;
+     d94:	e3a0320f 	mov	r3, #-268435456	; 0xf0000000
+     d98:	e5930000 	ldr	r0, [r3]
+     d9c:	e1a001a0 	lsr	r0, r0, #3
+}
+     da0:	e2000001 	and	r0, r0, #1
+     da4:	e12fff1e 	bx	lr
+
+00000da8 <block_get_params>:
+    return (*REG(SYSINFO_FEATURES) & SYSINFO_FEATURE_BLOCKDEV) ? 1 : 0;
+     da8:	e3a0320f 	mov	r3, #-268435456	; 0xf0000000
+     dac:	e5932000 	ldr	r2, [r3]
+
+int block_get_params(unsigned long long *size)
+{
+     db0:	e1a03000 	mov	r3, r0
+    if (!block_is_present())
+     db4:	e3120008 	tst	r2, #8
+        return -1;
+
+    *size = (*REG64(BDEV_LEN));
+     db8:	13a024f2 	movne	r2, #-234881024	; 0xf2000000
+     dbc:	15921014 	ldrne	r1, [r2, #20]
+     dc0:	15922018 	ldrne	r2, [r2, #24]
+
+    return 0;
+     dc4:	13a00000 	movne	r0, #0
+    *size = (*REG64(BDEV_LEN));
+     dc8:	18830006 	stmne	r3, {r1, r2}
+        return -1;
+     dcc:	03e00000 	mvneq	r0, #0
+}
+     dd0:	e12fff1e 	bx	lr
+
+00000dd4 <block_read>:
+
+    return 0;
+}
+
+int block_read(unsigned long long offset, unsigned int len, void *buf)
+{
+     dd4:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    *REG(BDEV_CMD_ADDR) = (unsigned int)buf;
+     dd8:	e3a0c4f2 	mov	ip, #-234881024	; 0xf2000000
+        *REG(BDEV_CMD) = BDEV_CMD_READ;
+     ddc:	e3a0e001 	mov	lr, #1
+    *REG(BDEV_CMD_ADDR) = (unsigned int)buf;
+     de0:	e58c3004 	str	r3, [ip, #4]
+    *REG64(BDEV_CMD_OFF) = offset;
+     de4:	e1cc00f8 	strd	r0, [ip, #8]
+    *REG(BDEV_CMD_LEN) = len;
+     de8:	e58c2010 	str	r2, [ip, #16]
+    return block_read_write(offset, len, buf, 1);
+}
+     dec:	e3a00000 	mov	r0, #0
+        *REG(BDEV_CMD) = BDEV_CMD_READ;
+     df0:	e58ce000 	str	lr, [ip]
+}
+     df4:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+
+00000df8 <block_write>:
+
+int block_write(unsigned long long offset, unsigned int len, const void *buf)
+{
+     df8:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+    *REG(BDEV_CMD_ADDR) = (unsigned int)buf;
+     dfc:	e3a0c4f2 	mov	ip, #-234881024	; 0xf2000000
+        *REG(BDEV_CMD) = BDEV_CMD_WRITE;
+     e00:	e3a0e002 	mov	lr, #2
+    *REG(BDEV_CMD_ADDR) = (unsigned int)buf;
+     e04:	e58c3004 	str	r3, [ip, #4]
+    *REG64(BDEV_CMD_OFF) = offset;
+     e08:	e1cc00f8 	strd	r0, [ip, #8]
+    *REG(BDEV_CMD_LEN) = len;
+     e0c:	e58c2010 	str	r2, [ip, #16]
+    return block_read_write(offset, len, (void *)buf, 0);
+}
+     e10:	e3a00000 	mov	r0, #0
+        *REG(BDEV_CMD) = BDEV_CMD_WRITE;
+     e14:	e58ce000 	str	lr, [ip]
+}
+     e18:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+
+00000e1c <arm_rotate_right_array>:
+void arm_rotate_right_array(int *outarray, int *inarray, int count, int rotate)
+{
+    int i;
+    int targetindex;
+
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     e1c:	e3520001 	cmp	r2, #1
+     e20:	d12fff1e 	bxle	lr
+{
+     e24:	e52de004 	push	{lr}		; (str lr, [sp, #-4]!)
+     e28:	e241e008 	sub	lr, r1, #8
+     e2c:	e08ee102 	add	lr, lr, r2, lsl #2
+     e30:	e2411004 	sub	r1, r1, #4
+        if (targetindex >= count)
+            targetindex -= count;
+        outarray[targetindex] = inarray[i];
+     e34:	e5b1c004 	ldr	ip, [r1, #4]!
+        if (targetindex >= count)
+     e38:	e1520003 	cmp	r2, r3
+            targetindex -= count;
+     e3c:	d0433002 	suble	r3, r3, r2
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     e40:	e151000e 	cmp	r1, lr
+        outarray[targetindex] = inarray[i];
+     e44:	e780c103 	str	ip, [r0, r3, lsl #2]
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     e48:	e2833001 	add	r3, r3, #1
+     e4c:	1afffff8 	bne	e34 <arm_rotate_right_array+0x18>
+     e50:	e49df004 	pop	{pc}		; (ldr pc, [sp], #4)
+
+00000e54 <test_arm_ptr_routine>:
+}
+
+int test_arm_ptr_routine(int a)
+{
+    return a+1;
+}
+     e54:	e2800001 	add	r0, r0, #1
+     e58:	e12fff1e 	bx	lr
+
+00000e5c <armfunc>:
+
+int armfunc(int a)
+{
+     e5c:	e92d40f0 	push	{r4, r5, r6, r7, lr}
+     e60:	e59fe0bc 	ldr	lr, [pc, #188]	; f24 <armfunc+0xc8>
+
+    for (i=0; i < ARRAY_SIZE; i++) {
+        if (i > 0)
+            foo = bar[i-1];
+        foo += i + a;
+        foo *= mul;
+     e64:	e59f30bc 	ldr	r3, [pc, #188]	; f28 <armfunc+0xcc>
+     e68:	e08fe00e 	add	lr, pc, lr
+     e6c:	e08f3003 	add	r3, pc, r3
+     e70:	e24e7004 	sub	r7, lr, #4
+     e74:	e28eeeff 	add	lr, lr, #4080	; 0xff0
+     e78:	e5936000 	ldr	r6, [r3]
+{
+     e7c:	e1a0c000 	mov	ip, r0
+     e80:	e28ee008 	add	lr, lr, #8
+        foo *= mul;
+     e84:	e1a02007 	mov	r2, r7
+     e88:	e1a01000 	mov	r1, r0
+    int foo = 0x78324234;
+     e8c:	e59f3098 	ldr	r3, [pc, #152]	; f2c <armfunc+0xd0>
+        foo -= 27;
+        foo |= foo ^ (foo >> 2);
+        foo &= 0xffeffeff;
+     e90:	e59f5098 	ldr	r5, [pc, #152]	; f30 <armfunc+0xd4>
+        if (foo & 8)
+            foo <<= 1;
+        if (foo == a)
+            foo = 0x9127345;
+     e94:	e59f4098 	ldr	r4, [pc, #152]	; f34 <armfunc+0xd8>
+     e98:	ea000000 	b	ea0 <armfunc+0x44>
+            foo = bar[i-1];
+     e9c:	e5b23004 	ldr	r3, [r2, #4]!
+        foo += i + a;
+     ea0:	e0813003 	add	r3, r1, r3
+        foo *= mul;
+     ea4:	e0000396 	mul	r0, r6, r3
+        foo -= 27;
+     ea8:	e2811001 	add	r1, r1, #1
+     eac:	e240001b 	sub	r0, r0, #27
+        foo |= foo ^ (foo >> 2);
+     eb0:	e1800140 	orr	r0, r0, r0, asr #2
+        if (foo & 8)
+     eb4:	e3100008 	tst	r0, #8
+        foo &= 0xffeffeff;
+     eb8:	e0000005 	and	r0, r0, r5
+            foo <<= 1;
+     ebc:	11a00080 	lslne	r0, r0, #1
+            foo = 0x9127345;
+     ec0:	e150000c 	cmp	r0, ip
+     ec4:	01a00004 	moveq	r0, r4
+        foo >>= a;
+     ec8:	e1a00c50 	asr	r0, r0, ip
+    for (i=0; i < ARRAY_SIZE; i++) {
+     ecc:	e15e0002 	cmp	lr, r2
+    return a+1;
+     ed0:	e2603000 	rsb	r3, r0, #0
+        foo = ~foo;
+        foo = func(foo);
+        bar[i] = foo;
+     ed4:	e5823004 	str	r3, [r2, #4]
+    for (i=0; i < ARRAY_SIZE; i++) {
+     ed8:	1affffef 	bne	e9c <armfunc+0x40>
+        outarray[targetindex] = inarray[i];
+     edc:	e59fe054 	ldr	lr, [pc, #84]	; f38 <armfunc+0xdc>
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     ee0:	e3a03005 	mov	r3, #5
+        outarray[targetindex] = inarray[i];
+     ee4:	e08fe00e 	add	lr, pc, lr
+        if (targetindex >= count)
+     ee8:	e59f404c 	ldr	r4, [pc, #76]	; f3c <armfunc+0xe0>
+     eec:	ea000002 	b	efc <armfunc+0xa0>
+     ef0:	e1510004 	cmp	r1, r4
+            targetindex -= count;
+     ef4:	c2433003 	subgt	r3, r3, #3
+        if (targetindex >= count)
+     ef8:	d1a03001 	movle	r3, r1
+        outarray[targetindex] = inarray[i];
+     efc:	e5b7c004 	ldr	ip, [r7, #4]!
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     f00:	e2831001 	add	r1, r3, #1
+     f04:	e1520007 	cmp	r2, r7
+        outarray[targetindex] = inarray[i];
+     f08:	e78ec103 	str	ip, [lr, r3, lsl #2]
+            targetindex -= count;
+     f0c:	e2433fff 	sub	r3, r3, #1020	; 0x3fc
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     f10:	1afffff6 	bne	ef0 <armfunc+0x94>
+    }
+
+    arm_rotate_right_array(baz, bar, ARRAY_SIZE, 5);
+
+    return foo > 87;
+}
+     f14:	e3700057 	cmn	r0, #87	; 0x57
+     f18:	a3a00000 	movge	r0, #0
+     f1c:	b3a00001 	movlt	r0, #1
+     f20:	e8bd80f0 	pop	{r4, r5, r6, r7, pc}
+     f24:	000119b8 	.word	0x000119b8
+     f28:	0000694c 	.word	0x0000694c
+     f2c:	78324234 	.word	0x78324234
+     f30:	ffeffeff 	.word	0xffeffeff
+     f34:	09127345 	.word	0x09127345
+     f38:	0001093c 	.word	0x0001093c
+     f3c:	000003ff 	.word	0x000003ff
+
+00000f40 <thumb_rotate_right_array>:
+static int baz_buf[ARRAY_SIZE];
+extern mul;
+
+/* should hit load/store pretty heavily */
+void thumb_rotate_right_array(int *outarray, int *inarray, int count, int rotate)
+{
+     f40:	b570      	push	{r4, r5, r6, lr}
+    int i;
+    int targetindex;
+
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     f42:	2a01      	cmp	r2, #1
+     f44:	dd0b      	ble.n	f5e <thumb_rotate_right_array+0x1e>
+     f46:	0094      	lsls	r4, r2, #2
+     f48:	1f0e      	subs	r6, r1, #4
+     f4a:	19a6      	adds	r6, r4, r6
+        if (targetindex >= count)
+     f4c:	429a      	cmp	r2, r3
+     f4e:	dc00      	bgt.n	f52 <thumb_rotate_right_array+0x12>
+            targetindex -= count;
+     f50:	1a9b      	subs	r3, r3, r2
+        outarray[targetindex] = inarray[i];
+     f52:	c920      	ldmia	r1!, {r5}
+     f54:	009c      	lsls	r4, r3, #2
+     f56:	5025      	str	r5, [r4, r0]
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+     f58:	3301      	adds	r3, #1
+     f5a:	42b1      	cmp	r1, r6
+     f5c:	d1f6      	bne.n	f4c <thumb_rotate_right_array+0xc>
+    }
+}
+     f5e:	bd70      	pop	{r4, r5, r6, pc}
+
+00000f60 <test_thumb_ptr_routine>:
+
+int test_thumb_ptr_routine(int b)
+{
+    return b+1;
+     f60:	3001      	adds	r0, #1
+}
+     f62:	4770      	bx	lr
+
+00000f64 <thumbfunc>:
+
+int thumbfunc(int a)
+{
+     f64:	4b38      	ldr	r3, [pc, #224]	; (1048 <thumbfunc+0xe4>)
+
+    for (i=0; i < ARRAY_SIZE; i++) {
+        if (i > 0)
+            foo = bar[i-1];
+        foo += i + a;
+        foo *= mul;
+     f66:	4a39      	ldr	r2, [pc, #228]	; (104c <thumbfunc+0xe8>)
+{
+     f68:	b5f0      	push	{r4, r5, r6, r7, lr}
+     f6a:	447b      	add	r3, pc
+     f6c:	4657      	mov	r7, sl
+     f6e:	464e      	mov	r6, r9
+     f70:	4645      	mov	r5, r8
+     f72:	46de      	mov	lr, fp
+     f74:	b5e0      	push	{r5, r6, r7, lr}
+        foo *= mul;
+     f76:	589b      	ldr	r3, [r3, r2]
+    long long bigint = a;
+     f78:	17c6      	asrs	r6, r0, #31
+        foo *= mul;
+     f7a:	681b      	ldr	r3, [r3, #0]
+    long long bigint = a;
+     f7c:	0035      	movs	r5, r6
+        foo *= mul;
+     f7e:	469c      	mov	ip, r3
+     f80:	222f      	movs	r2, #47	; 0x2f
+     f82:	2300      	movs	r3, #0
+    long long bigint = a;
+     f84:	0004      	movs	r4, r0
+     f86:	18a4      	adds	r4, r4, r2
+     f88:	415d      	adcs	r5, r3
+     f8a:	4b31      	ldr	r3, [pc, #196]	; (1050 <thumbfunc+0xec>)
+     f8c:	0002      	movs	r2, r0
+     f8e:	447b      	add	r3, pc
+     f90:	4698      	mov	r8, r3
+     f92:	0033      	movs	r3, r6
+     f94:	4e2f      	ldr	r6, [pc, #188]	; (1054 <thumbfunc+0xf0>)
+     f96:	2700      	movs	r7, #0
+     f98:	1992      	adds	r2, r2, r6
+     f9a:	417b      	adcs	r3, r7
+        foo -= 27;
+        foo |= foo ^ (foo >> 2);
+        foo &= 0xffeffeff;
+     f9c:	4e2e      	ldr	r6, [pc, #184]	; (1058 <thumbfunc+0xf4>)
+{
+     f9e:	b083      	sub	sp, #12
+     fa0:	9200      	str	r2, [sp, #0]
+     fa2:	9301      	str	r3, [sp, #4]
+    int foo = 0x78324234;
+     fa4:	4b2d      	ldr	r3, [pc, #180]	; (105c <thumbfunc+0xf8>)
+        foo &= 0xffeffeff;
+     fa6:	46b2      	mov	sl, r6
+        if (foo & 8)
+     fa8:	2608      	movs	r6, #8
+     faa:	4641      	mov	r1, r8
+     fac:	46c3      	mov	fp, r8
+     fae:	46b1      	mov	r9, r6
+     fb0:	46e0      	mov	r8, ip
+     fb2:	0002      	movs	r2, r0
+        foo += i + a;
+     fb4:	18d3      	adds	r3, r2, r3
+        foo *= mul;
+     fb6:	4646      	mov	r6, r8
+     fb8:	435e      	muls	r6, r3
+     fba:	0033      	movs	r3, r6
+        foo -= 27;
+     fbc:	3b1b      	subs	r3, #27
+        foo |= foo ^ (foo >> 2);
+     fbe:	109e      	asrs	r6, r3, #2
+     fc0:	431e      	orrs	r6, r3
+     fc2:	46b4      	mov	ip, r6
+        foo &= 0xffeffeff;
+     fc4:	4653      	mov	r3, sl
+     fc6:	4033      	ands	r3, r6
+        if (foo & 8)
+     fc8:	4667      	mov	r7, ip
+     fca:	464e      	mov	r6, r9
+     fcc:	423e      	tst	r6, r7
+     fce:	d000      	beq.n	fd2 <thumbfunc+0x6e>
+            foo <<= 1;
+     fd0:	005b      	lsls	r3, r3, #1
+        if (foo == a)
+     fd2:	4283      	cmp	r3, r0
+     fd4:	d100      	bne.n	fd8 <thumbfunc+0x74>
+            foo = 0x9127345;
+     fd6:	4b22      	ldr	r3, [pc, #136]	; (1060 <thumbfunc+0xfc>)
+        foo >>= a;
+        foo = ~foo;
+        foo = func(foo);
+        bigint += 47;
+        foo += bigint;
+     fd8:	262f      	movs	r6, #47	; 0x2f
+        foo >>= a;
+     fda:	4103      	asrs	r3, r0
+     fdc:	2700      	movs	r7, #0
+     fde:	1ae3      	subs	r3, r4, r3
+        bar[i] = foo;
+     fe0:	19a4      	adds	r4, r4, r6
+     fe2:	417d      	adcs	r5, r7
+    for (i=0; i < ARRAY_SIZE; i++) {
+     fe4:	9e00      	ldr	r6, [sp, #0]
+        bar[i] = foo;
+     fe6:	600b      	str	r3, [r1, #0]
+     fe8:	3201      	adds	r2, #1
+    for (i=0; i < ARRAY_SIZE; i++) {
+     fea:	42a6      	cmp	r6, r4
+     fec:	d001      	beq.n	ff2 <thumbfunc+0x8e>
+            foo = bar[i-1];
+     fee:	3104      	adds	r1, #4
+     ff0:	e7e0      	b.n	fb4 <thumbfunc+0x50>
+    for (i=0; i < ARRAY_SIZE; i++) {
+     ff2:	9e01      	ldr	r6, [sp, #4]
+     ff4:	42ae      	cmp	r6, r5
+     ff6:	d1fa      	bne.n	fee <thumbfunc+0x8a>
+     ff8:	4c1a      	ldr	r4, [pc, #104]	; (1064 <thumbfunc+0x100>)
+        outarray[targetindex] = inarray[i];
+     ffa:	481b      	ldr	r0, [pc, #108]	; (1068 <thumbfunc+0x104>)
+     ffc:	465e      	mov	r6, fp
+     ffe:	6837      	ldr	r7, [r6, #0]
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+    1000:	2105      	movs	r1, #5
+        outarray[targetindex] = inarray[i];
+    1002:	008a      	lsls	r2, r1, #2
+    1004:	4478      	add	r0, pc
+    1006:	445c      	add	r4, fp
+    1008:	5087      	str	r7, [r0, r2]
+        if (targetindex >= count)
+    100a:	4d18      	ldr	r5, [pc, #96]	; (106c <thumbfunc+0x108>)
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+    100c:	1c4a      	adds	r2, r1, #1
+    100e:	42b4      	cmp	r4, r6
+    1010:	d00b      	beq.n	102a <thumbfunc+0xc6>
+        if (targetindex >= count)
+    1012:	42aa      	cmp	r2, r5
+    1014:	dd14      	ble.n	1040 <thumbfunc+0xdc>
+            targetindex -= count;
+    1016:	4a16      	ldr	r2, [pc, #88]	; (1070 <thumbfunc+0x10c>)
+    1018:	3604      	adds	r6, #4
+    101a:	4694      	mov	ip, r2
+    101c:	4461      	add	r1, ip
+        outarray[targetindex] = inarray[i];
+    101e:	6837      	ldr	r7, [r6, #0]
+    1020:	008a      	lsls	r2, r1, #2
+    1022:	5087      	str	r7, [r0, r2]
+    for (i=0, targetindex = rotate; i < count - 1; i++, targetindex++) {
+    1024:	1c4a      	adds	r2, r1, #1
+    1026:	42b4      	cmp	r4, r6
+    1028:	d1f3      	bne.n	1012 <thumbfunc+0xae>
+
+    }
+
+    thumb_rotate_right_array(baz, bar, ARRAY_SIZE, 5);
+
+    return foo > 87;
+    102a:	2001      	movs	r0, #1
+    102c:	2b57      	cmp	r3, #87	; 0x57
+    102e:	dc00      	bgt.n	1032 <thumbfunc+0xce>
+    1030:	2000      	movs	r0, #0
+}
+    1032:	b003      	add	sp, #12
+    1034:	bc3c      	pop	{r2, r3, r4, r5}
+    1036:	4690      	mov	r8, r2
+    1038:	4699      	mov	r9, r3
+    103a:	46a2      	mov	sl, r4
+    103c:	46ab      	mov	fp, r5
+    103e:	bdf0      	pop	{r4, r5, r6, r7, pc}
+        if (targetindex >= count)
+    1040:	0011      	movs	r1, r2
+    1042:	3604      	adds	r6, #4
+    1044:	e7eb      	b.n	101e <thumbfunc+0xba>
+    1046:	46c0      	nop			; (mov r8, r8)
+    1048:	00006856 	.word	0x00006856
+    104c:	0000000c 	.word	0x0000000c
+    1050:	00013896 	.word	0x00013896
+    1054:	0000bc2f 	.word	0x0000bc2f
+    1058:	ffeffeff 	.word	0xffeffeff
+    105c:	78324234 	.word	0x78324234
+    1060:	09127345 	.word	0x09127345
+    1064:	00000ff8 	.word	0x00000ff8
+    1068:	00012820 	.word	0x00012820
+    106c:	000003ff 	.word	0x000003ff
+    1070:	fffffc01 	.word	0xfffffc01
