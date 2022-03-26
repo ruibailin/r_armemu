@@ -1,0 +1,17 @@
+Properties->c/c++ build->settings->Tool Settings
+
+A.gcc c complier:
+1.
+2.preprocessor
+
+3.includes
+4.
+5.
+6.
+7.
+-c -fmessage-length=0
+
+C. gcc c Linker
+1.
+2.Libraries
+SDL
